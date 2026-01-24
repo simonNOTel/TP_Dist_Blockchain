@@ -84,6 +84,12 @@ class CodeGen:
                 self.emit(46)
             elif e.name in self.func_addresses:
                 self.emit(21, self.func_addresses[e.name])
+            elif e.name == "fwrite":
+                for arg in e.args: self.gen_expr(arg)
+                self.emit(50)  # Назначаем код 50 для записи
+            elif e.name == "fappend":
+                for arg in e.args: self.gen_expr(arg)
+                self.emit(51)  # Назначаем код 51 для добавления
 
     def gen_stmt(self, s):
         if isinstance(s, VarDecl):

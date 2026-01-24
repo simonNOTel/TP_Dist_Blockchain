@@ -120,6 +120,25 @@ class XVM:
         elif op == 46:  # PRINTHEX
             print(f"0x{self.stack.pop():016x}"); self.stack.append(0)
 
+
+        elif op == 50:  # FWRITE
+            data_addr = self.stack.pop()
+            name_addr = self.stack.pop()
+            filename = self._read_str(name_addr)
+            content = self._read_str(data_addr)
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(content)
+            self.stack.append(1)
+
+        elif op == 51:  # FAPPEND
+            data_addr = self.stack.pop()
+            name_addr = self.stack.pop()
+            filename = self._read_str(name_addr)
+            content = self._read_str(data_addr)
+            with open(filename, "a", encoding="utf-8") as f:
+                f.write(content)
+            self.stack.append(1)
+
     def run(self):
         while self.running:
             self.step()

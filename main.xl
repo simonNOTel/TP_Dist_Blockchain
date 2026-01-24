@@ -1,29 +1,54 @@
-import "crypto.xl";
-import "file.xl";
+// main.xl - Точка входа и симуляция бизнес-логики
+import "base.xl";
+import "bc_core.xl";
+import "actions.xl";
 
 func main() {
-    prints("--- Blockchain Start ---");
+    prints("=== GEM BLOCKCHAIN SYSTEM START ===");
 
-    // 1. Подготовка тестовых данных
-    var data_len = Int(2);
-    var data = new(Int(16));
+    // 1. Инициализация всех слоев
+    bc_init();      // Запуск ядра (подготовка хешей и файлов)
+    base_init();    // Загрузка стандартов и белого списка организаций
 
-    data[Int(0)] = 0x1122334455667788;
-    data[Int(1)] = 0xAABBCCDDEEFF0011;
+    prints("System initialized. Ready for transactions.");
+    prints("");
 
-    var secret = 0xCAFEBABE;
+    // 2. Симуляция: Регистрация нового участника (Студента)
+    // Допустим, ID пользователя — это упрощенный публичный ключ
+    var student_id = 0xABCD1234;
+    action_wallet_create(student_id, Int(1)); // Роль 1 - Гражданин
 
-    // 2. Вызов функции подписи
-    prints("Generating signature...");
-    var hash_result = crypto_sign(data, data_len, secret);
+    prints("");
 
-    // 3. Вывод полученного хеша
-    prints("Hash Result:");
-    // ВАЖНО: Внутри цикла for нельзя писать "var"
-    for (var i = Int(0); i < Int(8); i = i + Int(1)) {
-        // Передаем элемент массива напрямую в функцию
-        printhex(hash_result[i]);
-    }
+    // 3. Симуляция: Выпуск NFT-диплома организацией
+    // Данные для минтинга:
+    var nft_id = Int(1001);        // Уникальный номер записи
+    var corp_ndt = 0x375;          // ID НДТП из белого списка
+
+    // Генерируем тестовый хеш документа (диплома в PDF)
+    var doc_hash = new(Int(8));
+    doc_hash[Int(0)] = 0x55555555; // Условный результат SHA-512
+    doc_hash[Int(7)] = 0xEEEEEEEE;
+
+    prints("Action: NDT is issuing a diploma NFT...");
+    action_nft_create(nft_id, student_id, corp_ndt, doc_hash);
+
+    prints("");
+
+    // 4. Симуляция: Проверка и передача (например, предъявление документа)
+    // Студент "передает" или подтверждает владение для другой стороны
+    var employer_id = 0x99998888;
+    action_nft_transfer(nft_id, employer_id);
+
+    prints("");
+
+    // 5. Симуляция: Отзыв документа (если документ аннулирован)
+    prints("Action: Revoking diploma due to expiration...");
+    action_nft_deactivate(nft_id, corp_ndt);
+
+    prints("");
+    prints("=== SIMULATION FINISHED ===");
+    prints("All transactions are recorded in chain.json and logs.txt");
 
     return Int(0);
 }

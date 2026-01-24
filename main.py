@@ -43,7 +43,6 @@ def load_program(filename, visited=None):
 
     return all_vars, all_funcs
 
-
 def run_pipeline(entry_file):
     try:
         # 1. Сбор всех исходников
@@ -58,7 +57,6 @@ def run_pipeline(entry_file):
         # 3. Запуск в виртуальной машине
         print("--- EXECUTION START ---")
         vm = XVM(bytecode)
-
         # --- FIX: Загрузка строк в память VM ---
         vm.load_strings(cg.string_pool)
         # ---------------------------------------
@@ -79,3 +77,4 @@ if __name__ == "__main__":
         target = sys.argv[1]
 
     run_pipeline(target)
+

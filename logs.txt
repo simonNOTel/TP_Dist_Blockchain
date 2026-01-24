@@ -1,0 +1,1 @@
+--- Kernel Boot: System Ready ---\nBlock committed. Index: OK\nBlock committed. Index: OK\nBlock committed. Index: OK\n
