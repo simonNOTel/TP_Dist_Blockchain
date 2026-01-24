@@ -1,0 +1,22 @@
+// file.xl - Библиотека для работы с файлами
+
+func log_txt(filename, message) {
+    fappend(filename, message);
+    fappend(filename, " "); // используем пробел или упрощенный перенос
+    return Int(1);
+}
+
+// Запись блока в "ручном" JSON формате
+func save_block_manual(filename, corp_id, doc_id) {
+    // Используем одинарные кавычки, чтобы парсер не спотыкался
+    fwrite(filename, "{ 'block': { ");
+
+    fappend(filename, " 'corp_id': ");
+    fappend(filename, "0xDEADBEEF");
+
+    fappend(filename, ", 'doc_id': ");
+    fappend(filename, "10245");
+
+    fappend(filename, " } }");
+    return Int(1);
+}

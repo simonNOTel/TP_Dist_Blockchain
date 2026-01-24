@@ -1,0 +1,91 @@
+// Библиотека SHA-512 для XLang
+var K = new(Int(80));
+
+func init_sha_constants() {
+    K[Int(0)] = 0x428a2f98d728ae22; K[Int(1)] = 0x7137449123ef65cd;
+    K[Int(2)] = 0xb5c0fbcfec4d3b2f; K[Int(3)] = 0xe9b5dba58189dbbc;
+    K[Int(4)] = 0x3956c25bf348b538; K[Int(5)] = 0x59f111f1b605d019;
+    K[Int(6)] = 0x923f82a4af194f9b; K[Int(7)] = 0xab1c5ed5da6d8118;
+    K[Int(8)] = 0xd807aa98a3030242; K[Int(9)] = 0x12835b0145706fbe;
+    K[Int(10)] = 0x243185be4ee4b28c; K[Int(11)] = 0x550c7dc3d5ffb4e2;
+    K[Int(12)] = 0x72be5d74f27b896f; K[Int(13)] = 0x80deb1fe3b1696b1;
+    K[Int(14)] = 0x9bdc06a725c71235; K[Int(15)] = 0xc19bf174cf692694;
+    K[Int(16)] = 0xe49b69c19ef14ad2; K[Int(17)] = 0xefbe4786384f25e3;
+    K[Int(18)] = 0x0fc19dc68b8cd5b5; K[Int(19)] = 0x240ca1cc77ac9c65;
+    K[Int(20)] = 0x2de92c6f592b0275; K[Int(21)] = 0x4a7484aa6ea6e483;
+    K[Int(22)] = 0x5cb0a9dcbd41fbd4; K[Int(23)] = 0x76f988da831153b5;
+    K[Int(24)] = 0x983e5152ee66dfab; K[Int(25)] = 0xa831c66d2db43210;
+    K[Int(26)] = 0xb00327c898fb213f; K[Int(27)] = 0xbf597fc7beef0ee4;
+    K[Int(28)] = 0xc6e00bf33da88fc2; K[Int(29)] = 0xd5a79147930aa725;
+    K[Int(30)] = 0x06ca6351e003826f; K[Int(31)] = 0x142929670a0e6e70;
+    K[Int(32)] = 0x27b70a8546d22ffc; K[Int(33)] = 0x2e1b21385c26c926;
+    K[Int(34)] = 0x4d2c6dfc5ac42aed; K[Int(35)] = 0x53380d139d95b3df;
+    K[Int(36)] = 0x650a73548baf63de; K[Int(37)] = 0x766a0abb3c77b2a8;
+    K[Int(38)] = 0x81c2c92e47edaee6; K[Int(39)] = 0x92722c851482353b;
+    K[Int(40)] = 0xa2bfe8a14cf10364; K[Int(41)] = 0xa81a664bbc423001;
+    K[Int(42)] = 0xc24b8b70d0f89791; K[Int(43)] = 0xc76c51a30654be30;
+    K[Int(44)] = 0xd192e819d6ef5218; K[Int(45)] = 0xd69906245565a910;
+    K[Int(46)] = 0xf40e35855771202a; K[Int(47)] = 0x106aa07032bbd1b8;
+    K[Int(48)] = 0x19a4c116b8d2d0c8; K[Int(49)] = 0x1e376c085141ab53;
+    K[Int(50)] = 0x2748774cdf8eeb99; K[Int(51)] = 0x34b0bcb5e19b48a8;
+    K[Int(52)] = 0x391c0cb3c5c95a63; K[Int(53)] = 0x4ed8aa4ae3418acb;
+    K[Int(54)] = 0x5b9cca4f7763e373; K[Int(55)] = 0x682e6ff3d6b2b8a3;
+    K[Int(56)] = 0x748f82ee5defb2fc; K[Int(57)] = 0x78a5636f43172f60;
+    K[Int(58)] = 0x84c87814a1f0ab72; K[Int(59)] = 0x8cc702081a6439ec;
+    K[Int(60)] = 0x90befffa23631e28; K[Int(61)] = 0xa4506cebde82bde9;
+    K[Int(62)] = 0xbef9a3f7b2c67915; K[Int(63)] = 0xc67178f2e372532b;
+    K[Int(64)] = 0xca273eceea26619c; K[Int(65)] = 0xd186b8c721c0c207;
+    K[Int(66)] = 0xeada7dd6cde0eb1e; K[Int(67)] = 0xf57d4f7fee6ed178;
+    K[Int(68)] = 0x06f067aa72176fba; K[Int(69)] = 0x0a637dc5a2c898a6;
+    K[Int(70)] = 0x113f9804bef90dae; K[Int(71)] = 0x1b710b35131c471b;
+    K[Int(72)] = 0x28db77f523047d84; K[Int(73)] = 0x32caab7b40c72493;
+    K[Int(74)] = 0x3c9ebe0a15c9bebc; K[Int(75)] = 0x431d67c49c100d4c;
+    K[Int(76)] = 0x4cc5d4becb3e42b6; K[Int(77)] = 0x597f299cfc657e2a;
+    K[Int(78)] = 0x5fcb6fab3ad6faec; K[Int(79)] = 0x6c44198c4a475817;
+    return Int(0);
+}
+
+func Sigma0(x) { return (x >>> Int(28)) ^ (x >>> Int(34)) ^ (x >>> Int(39)); }
+func Sigma1(x) { return (x >>> Int(14)) ^ (x >>> Int(18)) ^ (x >>> Int(41)); }
+func Gamma0(x) { return (x >>> Int(1)) ^ (x >>> Int(8)) ^ (x >> Int(7)); }
+func Gamma1(x) { return (x >>> Int(19)) ^ (x >>> Int(61)) ^ (x >> Int(6)); }
+func Ch(x, y, z) { return (x & y) ^ ((x ^ Int(-1)) & z); }
+func Maj(x, y, z) { return (x & y) ^ (x & z) ^ (y & z); }
+
+func sha512_process_block(w, h) {
+    // 1. Подготовка расписания сообщений (Message Schedule)
+    for (var i = Int(16); i < Int(80); i = i + Int(1)) {
+        w[i] = Gamma1(w[i - Int(2)]) + w[i - Int(7)] + Gamma0(w[i - Int(15)]) + w[i - Int(16)];
+    }
+
+    // 2. Инициализация рабочих переменных
+    var a = h[Int(0)]; var b = h[Int(1)]; var c = h[Int(2)]; var d = h[Int(3)];
+    var e = h[Int(4)]; var f = h[Int(5)]; var g = h[Int(6)]; var h_var = h[Int(7)];
+
+    // 3. Основной цикл (80 раундов)
+    for (var j = Int(0); j < Int(80); j = j + Int(1)) {
+        var t1 = h_var + Sigma1(e) + Ch(e, f, g) + K[j] + w[j];
+        var t2 = Sigma0(a) + Maj(a, b, c);
+
+        h_var = g;
+        g = f;
+        f = e;
+        e = d + t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 + t2;
+    }
+
+    // 4. Добавление результата к текущему хэшу
+    h[Int(0)] = h[Int(0)] + a;
+    h[Int(1)] = h[Int(1)] + b;
+    h[Int(2)] = h[Int(2)] + c;
+    h[Int(3)] = h[Int(3)] + d;
+    h[Int(4)] = h[Int(4)] + e;
+    h[Int(5)] = h[Int(5)] + f;
+    h[Int(6)] = h[Int(6)] + g;
+    h[Int(7)] = h[Int(7)] + h_var;
+
+    return Int(0);
+}

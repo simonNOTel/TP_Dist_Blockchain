@@ -1,0 +1,26 @@
+import "crypto.xl";
+
+func create_secure_block(corp_id, doc_id, secret_key) {
+    prints("--- BLOCKCHAIN CORE ---");
+    var block_data = new(Int(2));
+    block_data[Int(0)] = corp_id;
+    block_data[Int(1)] = doc_id;
+
+    var signature = crypto_sign(block_data, Int(2), secret_key);
+
+    var final_payload = new(Int(10));
+    final_payload[Int(0)] = corp_id;
+    final_payload[Int(1)] = doc_id;
+
+    for (var i = Int(0); i < Int(8); i = i + Int(1)) {
+        final_payload[i + Int(2)] = signature[i];
+    }
+
+    bc_save(final_payload, Int(10));
+    prints("SUCCESS: Block added");
+    return Int(1);
+}
+
+func main() {
+    create_secure_block(0xDEADBEEF, Int(10245), 0x1234567890ABCDEF);
+}

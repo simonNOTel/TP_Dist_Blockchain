@@ -1,0 +1,36 @@
+// crypto.xl - Криптографические функции
+
+func crypto_sign(data_ptr, data_size, secret_key) {
+    var ipad = 0x3636363636363636;
+
+    // Сначала вычисляем размер, потом аллоцируем
+    var w_size = Int(80);
+    var h_size = Int(8);
+    var w = new(w_size);
+    var h = new(h_size);
+
+    init_sha_constants();
+
+    var first_word = secret_key ^ ipad;
+    w[Int(0)] = first_word;
+
+    for (var j = Int(1); j < Int(16); j = j + Int(1)) {
+        var limit = data_size + Int(1);
+        if (j < limit) {
+            var idx = j - Int(1);
+            var d_val = data_ptr[idx];
+            w[j] = d_val;
+        } else {
+            w[j] = Int(0);
+        }
+    }
+
+    // Инициализация вектора хеша
+    h[Int(0)] = 0x6a09e667f3bcc908; h[Int(1)] = 0xbb67ae8584caa73b;
+    h[Int(2)] = 0x3c6ef372fe94f82b; h[Int(3)] = 0xa54ff53a5f1d36f1;
+    h[Int(4)] = 0x510e527fade682d1; h[Int(5)] = 0x9b05688c2b3e6c1f;
+    h[Int(6)] = 0x1f83d9abfb41bd6b; h[Int(7)] = 0x5be0cd19137e2179;
+
+    sha512_process_block(w, h);
+    return h;
+}
