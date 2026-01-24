@@ -1,42 +1,33 @@
-import os
 import json
 
 
 class XVM:
     def __init__(self, code):
-        # Память: 2000 ячеек для переменных
-        self.memory = [0] * 2000
+        self.code = code
+        self.memory = [0] * 5000
+        self.heap = [0] * 500000
         self.stack = []
         self.call_stack = []
-        # Куча: 50 000 ячеек для массивов и данных
-        self.heap = [0] * 50000
-        self.hp = 0
+        self.hp = 10000
         self.pc = 0
-        self.frame_base = 0
-        self.code = code
+        self.fp = 0
         self.running = True
 
     def _mask64(self, v):
         return v & 0xFFFFFFFFFFFFFFFF
 
-    def _read_string_from_heap(self, addr):
-        """Безопасное извлечение строки из кучи (ASCII)."""
-        s = ""
-        curr = int(addr)
-        while curr < len(self.heap):
-            val = int(self.heap[curr]) & 0xFF
-            if val == 0: break
-            s += chr(val)
-            curr += 1
-        return s
+    def load_strings(self, smap):
+        for addr, s in smap.items():
+            for i, c in enumerate(s): self.heap[addr + i] = ord(c)
+            self.heap[addr + len(s)] = 0
 
-    def run(self):
-        while self.running:
-            try:
-                self.step()
-            except Exception as e:
-                print(f"Runtime Error at PC {self.pc - 2}: {e}")
-                self.running = False
+    def _read_str(self, addr):
+        res = "";
+        addr = int(addr)
+        while addr < len(self.heap) and self.heap[addr] != 0:
+            res += chr(int(self.heap[addr]))
+            addr += 1
+        return res
 
     def step(self):
         if self.pc >= len(self.code):
@@ -44,101 +35,91 @@ class XVM:
             return
 
         op = self.code[self.pc]
-        o = self.code[self.pc + 1]
+        arg = self.code[self.pc + 1]
         self.pc += 2
 
-        # Управление
-        if op == 0:
-            self.running = False
-        elif op == 1:
-            self.stack.append(self._mask64(o))
+        if op == 1:
+            self.stack.append(arg)
         elif op == 2:
-            (self.stack.pop() if self.stack else 0)
-
-        # Переменные
+            self.stack.pop()
         elif op == 3:
-            self.stack.append(self.memory[o])  # Load Global
+            self.stack.append(self.memory[arg])
         elif op == 4:
-            self.memory[o] = self.stack.pop()  # Store Global
+            self.memory[arg] = self.stack.pop()
         elif op == 5:
-            self.stack.append(self.memory[self.frame_base + o])  # Load Local
+            self.stack.append(self.stack[self.fp - arg - 1])
         elif op == 6:
-            self.memory[self.frame_base + o] = self.stack.pop()  # Store Local
+            self.stack[self.fp - arg - 1] = self.stack.pop()
 
-        # Арифметика (64-бит)
-        elif op == 10:
+        # --- ARITHMETIC & LOGIC ---
+        elif op == 10:  # ADD
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a + b))
-        elif op == 11:
+        elif op == 11:  # SUB
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a - b))
-        elif op == 12:
+        elif op == 12:  # MUL
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a * b))
-        elif op == 14:
+        elif op == 13:  # DIV
+            b, a = self.stack.pop(), self.stack.pop()
+            self.stack.append(int(a / b) if b != 0 else 0)
+        elif op == 14:  # EQ (==)
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a == b else 0)
-        elif op == 15:
+        elif op == 15:  # NEQ (!=)
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a != b else 0)
+        elif op == 16:  # GT (>)
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a > b else 0)
-        elif op == 16:
+        elif op == 17:  # LT (<)
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a < b else 0)
-
-        # Переходы и функции
-        elif op == 20:
-            self.pc = o  # JMP
-        elif op == 21:  # JZ (Jump if Zero)
-            if self.stack.pop() == 0: self.pc = o
-        elif op == 22:  # RET
-            ret_val = self.stack.pop()
-            if self.call_stack:
-                self.pc, self.frame_base = self.call_stack.pop()
-                self.stack.append(ret_val)
-            else:
-                self.running = False
-        elif op == 23:  # CALL
-            self.call_stack.append((self.pc, self.frame_base))
-            self.frame_base += 100
-            self.pc = o
-
-        # Битовые операции (важны для криптографии)
-        elif op == 25:
+        elif op == 18:  # AND (&)
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a & b)
-        elif op == 26:
+        elif op == 19:  # OR (|)
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a | b)
-        elif op == 27:
+        # ---------------------------
+
+        elif op == 23:  # XOR (^)
             b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a ^ b)
-        elif op == 28:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a >> b)
-        elif op == 29:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append((a & 0xFFFFFFFFFFFFFFFF) >> b)
+        elif op == 24:  # Unsigned Right Shift (>>>)
+            b, a = self.stack.pop() % 64, self.stack.pop()
+            self.stack.append(self._mask64(a) >> b)
+        elif op == 25:  # Right Shift (>>)
+            b, a = self.stack.pop() % 64, self.stack.pop()
+            self.stack.append(a >> b)
 
-        # Куча / Массивы
+        elif op == 20:  # JMP
+            self.pc = arg
+        elif op == 30:  # JZ (Jump if Zero)
+            if self.stack.pop() == 0: self.pc = arg
+        elif op == 21:  # CALL
+            self.call_stack.append((self.pc, self.fp))
+            self.fp = len(self.stack)
+            self.pc = arg
+        elif op == 22:  # RET
+            val = self.stack.pop()
+            if not self.call_stack:
+                self.running = False
+            else:
+                pc, fp = self.call_stack.pop()
+                self.pc, self.fp = pc, fp
+                self.stack.append(val)
+
         elif op == 41:  # NEW
-            size = int(self.stack.pop())
+            size = self.stack.pop()
+            if size > 1000000: size = 0  # Защита от кривых индексов
             self.stack.append(self.hp)
-            self.hp += size
+            self.hp += int(size)
         elif op == 42:  # HLOAD
-            idx, addr = int(self.stack.pop()), int(self.stack.pop())
-            self.stack.append(self.heap[addr + idx])
+            idx, base = self.stack.pop(), self.stack.pop()
+            addr = int(base + idx)
+            self.stack.append(self.heap[addr] if 0 <= addr < len(self.heap) else 0)
         elif op == 43:  # HSTORE
-            val, idx, addr = self.stack.pop(), int(self.stack.pop()), int(self.stack.pop())
-            self.heap[addr + idx] = val
+            val, idx, base = self.stack.pop(), self.stack.pop(), self.stack.pop()
+            addr = int(base + idx)
+            if 0 <= addr < len(self.heap): self.heap[addr] = val
 
-        # Ввод-вывод и Блокчейн
         elif op == 45:  # PRINTS
-            print(self._read_string_from_heap(self.stack.pop()))
+            print(self._read_str(self.stack.pop())); self.stack.append(0)
         elif op == 46:  # PRINTHEX
-            print(f"0x{self.stack.pop():016x}")
-        elif op == 50:  # FWRITE
-            c_ptr, f_ptr = self.stack.pop(), self.stack.pop()
-            with open(self._read_string_from_heap(f_ptr), "w") as f:
-                f.write(self._read_string_from_heap(c_ptr))
-        elif op == 51:  # FAPPEND
-            c_ptr, f_ptr = self.stack.pop(), self.stack.pop()
-            with open(self._read_string_from_heap(f_ptr), "a") as f:
-                f.write(self._read_string_from_heap(c_ptr))
-        elif op == 55:  # BC_SAVE
-            size, addr = int(self.stack.pop()), int(self.stack.pop())
-            data = [int(self.heap[addr + i]) for i in range(size)]
-            chain = []
-            if os.path.exists("chain.json"):
-                with open("chain.json", "r") as f: chain = json.load(f)
-            chain.append({"data": data, "timestamp": "2026-01-23"})
-            with open("chain.json", "w") as f:
-                json.dump(chain, f, indent=4)
+            print(f"0x{self.stack.pop():016x}"); self.stack.append(0)
+
+    def run(self):
+        while self.running:
+            self.step()

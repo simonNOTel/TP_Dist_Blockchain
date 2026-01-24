@@ -148,7 +148,7 @@ class Parser:
             self.eat();
             self.eat("LPAREN")
             init = self.parse_var_decl();
-            self.eat("SEMICOL")
+            # Строку self.eat("SEMICOL") удалили, так как parse_var_decl уже съел её
             cond = self.parse_expr();
             self.eat("SEMICOL")
             step = self.parse_stmt()

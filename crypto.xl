@@ -1,36 +1,63 @@
-// crypto.xl - Криптографические функции
+// crypto.xl - Криптографические функции подписи
+import "SHA512.xl";
 
-func crypto_sign(data_ptr, data_size, secret_key) {
-    var ipad = 0x3636363636363636;
+// Инициализация стандартного IV для SHA-512
+func init_hash_state(h_ptr) {
+    h_ptr[Int(0)] = 0x6a09e667f3bcc908;
+    h_ptr[Int(1)] = 0xbb67ae8584caa73b;
+    h_ptr[Int(2)] = 0x3c6ef372fe94f82b;
+    h_ptr[Int(3)] = 0xa54ff53a5f1d36f1;
+    h_ptr[Int(4)] = 0x510e527fade682d1;
+    h_ptr[Int(5)] = 0x9b05688c2b3e6c1f;
+    h_ptr[Int(6)] = 0x1f83d9abfb41bd6b;
+    h_ptr[Int(7)] = 0x5be0cd19137e2179;
+}
 
-    // Сначала вычисляем размер, потом аллоцируем
-    var w_size = Int(80);
-    var h_size = Int(8);
-    var w = new(w_size);
-    var h = new(h_size);
-
+// Функция подписи блока данных секретным ключом
+// Возвращает массив из 8 чисел (хеш-подпись)
+func crypto_sign(data_ptr, data_len, secret_key) {
     init_sha_constants();
 
-    var first_word = secret_key ^ ipad;
-    w[Int(0)] = first_word;
+    // 1. Подготовка памяти
+    var w = new(Int(80)); // Message schedule buffer
+    var h = new(Int(8));  // Hash state
 
-    for (var j = Int(1); j < Int(16); j = j + Int(1)) {
-        var limit = data_size + Int(1);
-        if (j < limit) {
-            var idx = j - Int(1);
-            var d_val = data_ptr[idx];
-            w[j] = d_val;
-        } else {
-            w[j] = Int(0);
-        }
+    init_hash_state(h);
+
+    // 2. Формирование блока (Block Construction)
+    // Структура блока (1024 бита / 16 слов):
+    // Word 0: Secret Key (упрощенная "соль")
+    // Word 1..N: Данные
+    // Word N+1: Паддинг (0x80...)
+    // Word 15: Длина (в битах)
+
+    // Очистка буфера w
+    for(var i = Int(0); i < Int(80); i = i + Int(1)) {
+        w[i] = Int(0);
     }
 
-    // Инициализация вектора хеша
-    h[Int(0)] = 0x6a09e667f3bcc908; h[Int(1)] = 0xbb67ae8584caa73b;
-    h[Int(2)] = 0x3c6ef372fe94f82b; h[Int(3)] = 0xa54ff53a5f1d36f1;
-    h[Int(4)] = 0x510e527fade682d1; h[Int(5)] = 0x9b05688c2b3e6c1f;
-    h[Int(6)] = 0x1f83d9abfb41bd6b; h[Int(7)] = 0x5be0cd19137e2179;
+    // [0] -> Секретный ключ (соль)
+    w[Int(0)] = secret_key;
 
-    sha512_process_block(w, h);
+    // [1..len] -> Данные
+    for (var j = Int(0); j < data_len; j = j + Int(1)) {
+        var target_idx = j + Int(1);
+        w[target_idx] = data_ptr[j];
+    }
+
+    // [len+1] -> Padding start (бит 1 в начале)
+    // 0x8000000000000000 - это "1" в старшем бите 64-битного слова
+    var pad_idx = data_len + Int(1);
+    w[pad_idx] = 0x8000000000000000;
+
+    // [15] -> Длина сообщения в битах
+    // (1 слово ключа + data_len слов) * 64
+    var total_words = data_len + Int(1);
+    w[Int(15)] = total_words * Int(64);
+
+    // 3. Запуск хеширования
+    sha512_transform(h, w);
+
+    // 4. Результат в массиве h
     return h;
 }
