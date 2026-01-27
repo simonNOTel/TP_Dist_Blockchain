@@ -5,10 +5,15 @@ import "actions.xl";
 
 func main() {
     prints("=== GEM BLOCKCHAIN SYSTEM START ===");
+    bc_init();
 
-    // 1. Инициализация всех слоев
-    bc_init();      // Запуск ядра (подготовка хешей и файлов)
-    base_init();    // Загрузка стандартов и белого списка организаций
+    // Сначала проверяем старые данные, если они есть
+    if (bc_verify_chain() == Int(0)) {
+        prints("STOP: Chain integrity compromised!");
+        return Int(0);
+    }
+
+    base_init();
 
     prints("System initialized. Ready for transactions.");
     prints("");

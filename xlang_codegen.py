@@ -90,6 +90,9 @@ class CodeGen:
             elif e.name == "fappend":
                 for arg in e.args: self.gen_expr(arg)
                 self.emit(51)  # Назначаем код 51 для добавления
+            elif e.name == "fread":
+                for arg in e.args: self.gen_expr(arg)
+                self.emit(52)  # Код 52 для чтения файла
 
     def gen_stmt(self, s):
         if isinstance(s, VarDecl):

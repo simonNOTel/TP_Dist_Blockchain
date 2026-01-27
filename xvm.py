@@ -139,6 +139,22 @@ class XVM:
                 f.write(content)
             self.stack.append(1)
 
+        elif op == 52:  # FREAD (название файла) -> возвращает адрес строки в heap
+            name_addr = self.stack.pop()
+            filename = self._read_str(name_addr)
+            try:
+                with open(filename, "r", encoding="utf-8") as f:
+                    content = f.read()
+                # Сохраняем прочитанное в heap
+                addr = self.hp
+                for i, c in enumerate(content):
+                    self.heap[addr + i] = ord(c)
+                self.heap[addr + len(content)] = 0
+                self.hp += len(content) + 1
+                self.stack.append(addr)
+            except:
+                self.stack.append(0)  # Ошибка (файл не найден)
+
     def run(self):
         while self.running:
             self.step()
