@@ -11,7 +11,7 @@ TOKEN_SPEC = [
     ("STRING", r'"[^"]*"'),
     ("NUMBER", r"0x[0-9A-Fa-f]+|\d+"),
     ("ID", r"[A-Za-z_][A-Za-z0-9_]*"),
-    ("OP", r"&&|\|\||==|!=|>=|<=|>>>|>>|[\+\-\*/><=\^&|]"),
+    ("OP", r"&&|\|\||==|!=|>=|<=|>>>|>>|<<|[\+\-\*/><=\^&|]"),
     ("LPAREN", r"\("), ("RPAREN", r"\)"),
     ("LBRACE", r"\{"), ("RBRACE", r"\}"),
     ("LBRACKET", r"\["), ("RBRACKET", r"\]"),
@@ -31,7 +31,7 @@ def tokenize(code):
             line_start = mo.end()
             line += 1
             continue
-        elif kind in ("SKIP", "COMMENT"):
+        elif kind == "SKIP" or kind == "COMMENT":
             continue
         elif kind == "ID" and value in KEYWORDS:
             kind = value.upper()

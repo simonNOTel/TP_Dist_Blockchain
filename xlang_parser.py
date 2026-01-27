@@ -1,65 +1,35 @@
 from dataclasses import dataclass
 
-
 @dataclass
 class VarDecl: name: str; value: any
-
-
 @dataclass
 class Func: name: str; params: list; body: list
-
-
 @dataclass
 class Assign: name: str; expr: any
-
-
 @dataclass
 class BinOp: left: any; op: str; right: any
-
-
 @dataclass
 class Number: value: int
-
-
 @dataclass
 class StringLiteral: value: str
-
-
 @dataclass
 class Var: name: str
-
-
 @dataclass
 class Return: expr: any
-
-
 @dataclass
 class Call: name: str; args: list
-
-
 @dataclass
 class If: cond: any; then_body: list; else_body: list
-
-
 @dataclass
 class For: init: any; cond: any; step: any; body: list
-
-
 @dataclass
 class ArrayAlloc: size: any
-
-
 @dataclass
 class ArrayAccess: name: str; index: any
-
-
 @dataclass
 class ArrayAssign: name: str; index: any; value: any
-
-
 @dataclass
 class Import: filename: str
-
 
 class Parser:
     def __init__(self, tokens):
@@ -71,33 +41,31 @@ class Parser:
 
     def eat(self, expected_type=None):
         t = self.peek()
-        if expected_type and t.type != expected_type:
-            raise Exception(f"Expected {expected_type} at line {t.line}, got {t.type}")
+        if not t or (expected_type and t.type != expected_type):
+            raise Exception(f"Expected {expected_type} at line {t.line if t else 'EOF'}")
         self.pos += 1
         return t
 
     def parse(self):
         imports, vars_, funcs = [], [], []
-        while self.pos < len(self.tokens):
+        while self.peek():
             t = self.peek()
             if t.type == "IMPORT":
                 self.eat()
-                fname = self.eat("STRING").value.strip('"')
-                imports.append(Import(fname))
+                filename = self.eat("STRING").value.strip('"')
+                imports.append(Import(filename))
             elif t.type == "VAR":
                 vars_.append(self.parse_var_decl())
             elif t.type == "FUNC":
                 funcs.append(self.parse_func())
-            else:
-                self.pos += 1
+            else: self.eat()
         return imports, vars_, funcs
 
     def parse_var_decl(self):
         self.eat("VAR")
         name = self.eat("ID").value
-        self.eat("OP")  # '='
+        self.eat("OP") # '='
         val = self.parse_expr()
-        if self.peek() and self.peek().type == "SEMICOL": self.eat()
         return VarDecl(name, val)
 
     def parse_func(self):
@@ -108,10 +76,8 @@ class Parser:
         if self.peek().type != "RPAREN":
             while True:
                 params.append(self.eat("ID").value)
-                if self.peek().type == "COMMA":
-                    self.eat("COMMA")
-                else:
-                    break
+                if self.peek().type == "COMMA": self.eat("COMMA")
+                else: break
         self.eat("RPAREN")
         self.eat("LBRACE")
         body = []
@@ -122,58 +88,119 @@ class Parser:
 
     def parse_stmt(self):
         t = self.peek()
-        if t.type == "VAR": return self.parse_var_decl()
-        if t.type == "RETURN":
+        if not t: return None
+
+        res = None
+        if t.type == "VAR":
+            res = self.parse_var_decl()
+        elif t.type == "IF":
             self.eat()
-            expr = self.parse_expr()
-            if self.peek().type == "SEMICOL": self.eat()
-            return Return(expr)
-        if t.type == "IF":
-            self.eat();
             self.eat("LPAREN")
             cond = self.parse_expr()
-            self.eat("RPAREN");
+            self.eat("RPAREN")
             self.eat("LBRACE")
-            then_b = []
-            while self.peek().type != "RBRACE": then_b.append(self.parse_stmt())
+            then_body = []
+            while self.peek() and self.peek().type != "RBRACE":
+                then_body.append(self.parse_stmt())
             self.eat("RBRACE")
-            else_b = []
-            if self.peek() and self.peek().type == "ELSE":
-                self.eat();
-                self.eat("LBRACE")
-                while self.peek().type != "RBRACE": else_b.append(self.parse_stmt())
-                self.eat("RBRACE")
-            return If(cond, then_b, else_b)
-        if t.type == "FOR":
-            self.eat();
+            res = If(cond, then_body, [])
+        elif t.type == "FOR":
+            self.eat()
             self.eat("LPAREN")
-            init = self.parse_var_decl();
-            # Строку self.eat("SEMICOL") удалили, так как parse_var_decl уже съел её
-            cond = self.parse_expr();
-            self.eat("SEMICOL")
+            init = self.parse_stmt()
+            # Убираем жесткую привязку к SEMICOL, если он уже съеден внутри init
+            if self.peek() and self.peek().type == "SEMICOL": self.eat("SEMICOL")
+            cond = self.parse_expr()
+            if self.peek() and self.peek().type == "SEMICOL": self.eat("SEMICOL")
             step = self.parse_stmt()
-            self.eat("RPAREN");
+            self.eat("RPAREN")
             self.eat("LBRACE")
             body = []
-            while self.peek().type != "RBRACE": body.append(self.parse_stmt())
+            while self.peek() and self.peek().type != "RBRACE":
+                body.append(self.parse_stmt())
             self.eat("RBRACE")
-            return For(init, cond, step, body)
+            res = For(init, cond, step, body)
+        elif t.type == "RETURN":
+            self.eat()
+            res = Return(self.parse_expr())
+        elif t.type == "ID":
+            # Проверка на присваивание массива или переменной
+            name = t.value
+            next_t = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else None
+            if next_t and next_t.type == "LBRACKET":
+                self.eat("ID");
+                self.eat("LBRACKET")
+                idx = self.parse_expr();
+                self.eat("RBRACKET")
+                self.eat("OP")  # '='
+                val = self.parse_expr()
+                res = ArrayAssign(name, idx, val)
+            elif next_t and next_t.type == "OP" and next_t.value == "=":
+                self.eat("ID");
+                self.eat("OP")
+                res = Assign(name, self.parse_expr())
+            else:
+                res = self.parse_expr()
+        else:
+            res = self.parse_expr()
 
-        # Assignment or Call
-        expr = self.parse_expr()
-        if self.peek() and self.peek().type == "SEMICOL": self.eat()
-        return expr
+        # ПОСЛЕ ЛЮБОГО ВЫРАЖЕНИЯ: если идет точка с запятой — просто "съедаем" её
+        while self.peek() and self.peek().type == "SEMICOL":
+            self.eat("SEMICOL")
+
+        return res
 
     def parse_expr(self):
-        left = self.parse_primary()
-        while self.peek() and self.peek().type == "OP":
+        return self.parse_logic_or()
+
+    def parse_logic_or(self):
+        node = self.parse_logic_and()
+        while self.peek() and self.peek().value == "||":
             op = self.eat().value
-            if op == "=":
-                val = self.parse_expr()
-                if isinstance(left, Var): return Assign(left.name, val)
-                if isinstance(left, ArrayAccess): return ArrayAssign(left.name, left.index, val)
-            left = BinOp(left, op, self.parse_primary())
-        return left
+            node = BinOp(node, op, self.parse_logic_and())
+        return node
+
+    def parse_logic_and(self):
+        node = self.parse_equality()
+        while self.peek() and self.peek().value == "&&":
+            op = self.eat().value
+            node = BinOp(node, op, self.parse_equality())
+        return node
+
+    def parse_equality(self):
+        node = self.parse_relational()
+        while self.peek() and self.peek().value in ["==", "!="]:
+            op = self.eat().value
+            node = BinOp(node, op, self.parse_relational())
+        return node
+
+    def parse_relational(self):
+        node = self.parse_bitwise()
+        while self.peek() and self.peek().value in ["<", ">", "<=", ">="]:
+            op = self.eat().value
+            node = BinOp(node, op, self.parse_bitwise())
+        return node
+
+    def parse_bitwise(self):
+        node = self.parse_term()
+        while self.peek() and self.peek().value in ["&", "|", "^", ">>>", ">>"]:
+            op = self.eat().value
+            node = BinOp(node, op, self.parse_term())
+        return node
+
+    def parse_term(self):
+        node = self.parse_factor()
+        while self.peek() and self.peek().value in ["+", "-"]:
+            op = self.eat().value
+            node = BinOp(node, op, self.parse_factor())
+        return node
+
+    def parse_factor(self):
+        node = self.parse_primary()
+        while self.peek() and self.peek().value in ["*", "/"]:
+            op = self.eat().value
+            node = BinOp(node, op, self.parse_primary())
+        return node
 
     def parse_primary(self):
         t = self.eat()
@@ -182,18 +209,15 @@ class Parser:
             return Number(val)
         if t.type == "STRING": return StringLiteral(t.value.strip('"'))
         if t.type == "NEW":
-            self.eat("LPAREN");
-            size = self.parse_expr();
-            self.eat("RPAREN")
+            self.eat("LPAREN"); size = self.parse_expr(); self.eat("RPAREN")
             return ArrayAlloc(size)
         if t.type == "ID":
             name = t.value
-            if name == "Int":  # Special Int(-1) handling
+            if name == "Int":
                 self.eat("LPAREN")
                 sign = 1
                 if self.peek().type == "OP" and self.peek().value == "-":
-                    self.eat();
-                    sign = -1
+                    self.eat(); sign = -1
                 num_t = self.eat("NUMBER")
                 val = int(num_t.value, 16) if num_t.value.startswith("0x") else int(num_t.value)
                 self.eat("RPAREN")
@@ -204,20 +228,15 @@ class Parser:
                 if self.peek().type != "RPAREN":
                     while True:
                         args.append(self.parse_expr())
-                        if self.peek().type == "COMMA":
-                            self.eat("COMMA")
-                        else:
-                            break
+                        if self.peek().type == "COMMA": self.eat("COMMA")
+                        else: break
                 self.eat("RPAREN")
                 return Call(name, args)
             if self.peek() and self.peek().type == "LBRACKET":
-                self.eat("LBRACKET");
-                idx = self.parse_expr();
-                self.eat("RBRACKET")
+                self.eat("LBRACKET"); idx = self.parse_expr(); self.eat("RBRACKET")
                 return ArrayAccess(name, idx)
             return Var(name)
         if t.type == "LPAREN":
-            e = self.parse_expr();
-            self.eat("RPAREN")
-            return e
-        raise Exception(f"Unexpected token {t.type}")
+            node = self.parse_expr(); self.eat("RPAREN")
+            return node
+        raise Exception(f"Unexpected token {t.type} at line {t.line}")

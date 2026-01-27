@@ -25,12 +25,6 @@ func crypto_sign(data_ptr, data_len, secret_key) {
     init_hash_state(h);
 
     // 2. Формирование блока (Block Construction)
-    // Структура блока (1024 бита / 16 слов):
-    // Word 0: Secret Key (упрощенная "соль")
-    // Word 1..N: Данные
-    // Word N+1: Паддинг (0x80...)
-    // Word 15: Длина (в битах)
-
     // Очистка буфера w
     for(var i = Int(0); i < Int(80); i = i + Int(1)) {
         w[i] = Int(0);
@@ -39,25 +33,19 @@ func crypto_sign(data_ptr, data_len, secret_key) {
     // [0] -> Секретный ключ (соль)
     w[Int(0)] = secret_key;
 
-    // [1..len] -> Данные
-    for (var j = Int(0); j < data_len; j = j + Int(1)) {
-        var target_idx = j + Int(1);
-        w[target_idx] = data_ptr[j];
+    // Копирование данных (упрощенно: по одному слову на ячейку w)
+    for(var j = Int(0); j < data_len; j = j + Int(1)) {
+        if (j < Int(14)) {
+            w[j + Int(1)] = data_ptr[j];
+        }
     }
 
-    // [len+1] -> Padding start (бит 1 в начале)
-    // 0x8000000000000000 - это "1" в старшем бите 64-битного слова
-    var pad_idx = data_len + Int(1);
-    w[pad_idx] = 0x8000000000000000;
+    // Паддинг и длина (упрощенная имитация SHA-512)
+    w[Int(15)] = data_len * Int(64);
 
-    // [15] -> Длина сообщения в битах
-    // (1 слово ключа + data_len слов) * 64
-    var total_words = data_len + Int(1);
-    w[Int(15)] = total_words * Int(64);
-
-    // 3. Запуск хеширования
+    // 3. Вызов основного алгоритма трансформации
     sha512_transform(h, w);
 
-    // 4. Результат в массиве h
+    // --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Возвращаем указатель на массив хеша ---
     return h;
 }

@@ -15,18 +15,31 @@ var WALLET_STRUCT_SIZE = Int(3);
 // [12]   - Status (1 - Активен, 0 - Неактивен/Отозван)
 var NFT_STRUCT_SIZE = Int(13);
 
-// Список авторизованных организаций (простой массив для примера)
+// Список авторизованных организаций
 var auth_orgs = new(Int(10));
 
 func base_init() {
+    // Явная очистка массива от "мусора" в памяти VM
+    for (var i = Int(0); i < Int(10); i = i + Int(1)) {
+        auth_orgs[i] = Int(0);
+    }
+
+    // Регистрация доверенных ID
     auth_orgs[Int(0)] = 0x375; // НДТП
     auth_orgs[Int(1)] = 0x999; // Условный ВУЗ
 }
 
 // Проверка: является ли субъект авторизованной организацией
 func entity_is_authorized(id) {
-    for (var i = Int(0); i < Int(10); i = i + Int(1)) {
-        if (auth_orgs[i] == id) { return Int(1); }
+    // Если id равен 0, сразу возвращаем ложь
+    if (id == Int(0)) {
+        return Int(0);
     }
-    return Int(0);
+
+    for (var i = Int(0); i < Int(10); i = i + Int(1)) {
+        if (auth_orgs[i] == id) {
+            return Int(1); // Найдено в белом списке
+        }
+    }
+    return Int(0); // Организация не авторизована
 }

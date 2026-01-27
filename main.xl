@@ -21,7 +21,7 @@ func main() {
     // 2. Симуляция: Регистрация нового участника (Студента)
     // Допустим, ID пользователя — это упрощенный публичный ключ
     var student_id = 0xABCD1234;
-    action_wallet_create(student_id, Int(1)); // Роль 1 - Гражданин
+    action_create_wallet(student_id, Int(1)); // Роль 1 - Гражданин
 
     prints("");
 

@@ -43,6 +43,7 @@ def load_program(filename, visited=None):
 
     return all_vars, all_funcs
 
+
 def run_pipeline(entry_file):
     try:
         # 1. Сбор всех исходников
@@ -57,24 +58,24 @@ def run_pipeline(entry_file):
         # 3. Запуск в виртуальной машине
         print("--- EXECUTION START ---")
         vm = XVM(bytecode)
-        # --- FIX: Загрузка строк в память VM ---
+
+        # Загружаем строки в память VM
         vm.load_strings(cg.string_pool)
-        # ---------------------------------------
+
+        # Устанавливаем указатель кучи (hp) СРАЗУ ПОСЛЕ строк,
+        # чтобы новые массивы (new) не затирали имена файлов и текст
+        vm.hp = cg.next_string_addr
 
         vm.run()
+        vm.dump_heap()
         print("--- EXECUTION FINISHED ---")
 
     except Exception as e:
         print(f"\n[!] ERROR: {e}")
-        # Для отладки раскомментируй:
-        import traceback;
+        import traceback
         traceback.print_exc()
 
 
 if __name__ == "__main__":
-    target = "main.xl"
-    if len(sys.argv) > 1:
-        target = sys.argv[1]
-
-    run_pipeline(target)
-
+    # Точка входа - ваш главный файл .xl
+    run_pipeline("main.xl")
