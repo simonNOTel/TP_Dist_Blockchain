@@ -49,7 +49,6 @@ class CodeGen:
 
     def gen_stmt(self, s):
         if isinstance(s, VarDecl):
-            # Локальные переменные хранятся с префиксом функции
             name = f"{self.current_func.name}_{s.name}" if self.current_func else s.name
             if name not in self.globals:
                 self.globals[name] = self.next_mem
@@ -97,9 +96,10 @@ class CodeGen:
             self.gen_expr(s.expr)
             self.emit(22)
         else:
-            # Если выражение используется как команда (Statement), очищаем результат из стека
+            # Исправлено: если вызов функции используется как самостоятельная команда,
+            # мы обязаны удалить результат со стека (OP 2 - POP)
             self.gen_expr(s)
-            self.emit(2) # POP
+            self.emit(2)
 
     def gen_expr(self, e):
         if isinstance(e, Number):
@@ -112,7 +112,6 @@ class CodeGen:
             addr = [k for k, v in self.string_pool.items() if v == e.value][0]
             self.emit(1, addr)
         elif isinstance(e, Var):
-            # ИСПРАВЛЕНО: Поиск с учетом префикса функции
             name_with_prefix = f"{self.current_func.name}_{e.name}" if self.current_func else e.name
             if e.name in self.locals:
                 self.emit(5, self.locals[e.name])
@@ -135,16 +134,12 @@ class CodeGen:
             self.gen_expr(e.index)
             self.emit(42)
         elif isinstance(e, Call):
-            # Системные вызовы
             if e.name == "prints": self.gen_expr(e.args[0]); self.emit(45)
             elif e.name == "printi": self.gen_expr(e.args[0]); self.emit(46)
             elif e.name == "fwrite": self.gen_expr(e.args[0]); self.gen_expr(e.args[1]); self.emit(50)
             elif e.name == "fappend": self.gen_expr(e.args[0]); self.gen_expr(e.args[1]); self.emit(51)
             elif e.name == "fappend_int": self.gen_expr(e.args[0]); self.gen_expr(e.args[1]); self.emit(53)
             elif e.name == "fread": self.gen_expr(e.args[0]); self.emit(52)
-            elif e.name == "json_get_int":
-                for arg in e.args: self.gen_expr(arg)
-                self.emit(60)
             elif e.name == "json_get_hash":
                 for arg in e.args: self.gen_expr(arg)
                 self.emit(61)

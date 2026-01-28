@@ -8,7 +8,7 @@ class XVM:
         self.heap = [0] * 500000
         self.stack = []
         self.call_stack = []
-        self.hp = 200000  # Сдвигаем кучу дальше, чтобы не пересекаться со строками
+        self.hp = 200000
         self.pc = 0
         self.fp = 0
         self.running = True
@@ -17,28 +17,17 @@ class XVM:
         return v & 0xFFFFFFFFFFFFFFFF
 
     def dump_heap(self, filename="heap_debug.log"):
-        print(f"[VM] Saving heap dump to {filename}...")
         with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"--- XVM HEAP DUMP ---\n")
-            f.write(f"PC: {self.pc} | FP: {self.fp} | HP: {self.hp}\n")
-            f.write("-" * 30 + "\n")
-
-            # Дампим от начала кучи (100000) до текущего указателя
-            # + небольшой запас в 10 ячеек
+            f.write(f"--- XVM HEAP DUMP ---\nPC: {self.pc} | FP: {self.fp} | HP: {self.hp}\n")
             for addr in range(100000, self.hp + 10):
                 val = self.heap[addr]
                 if val == 0 and addr > self.hp: continue
-
-                # Если значение похоже на печатный символ ASCII
                 char_repr = f"| '{chr(val)}'" if 32 <= val <= 126 else ""
-
                 f.write(f"[{addr}] {val:<20} {char_repr}\n")
-
 
     def load_strings(self, smap):
         for addr, s in smap.items():
-            for i, c in enumerate(s):
-                self.heap[addr + i] = ord(c)
+            for i, c in enumerate(s): self.heap[addr + i] = ord(c)
             self.heap[addr + len(s)] = 0
 
     def _read_str(self, addr):
@@ -50,155 +39,95 @@ class XVM:
         return res
 
     def step(self):
-        if self.pc >= len(self.code):
+        if self.pc >= len(self.code) or self.pc < 0:
             self.running = False
             return
-
         op = self.code[self.pc]
         arg = self.code[self.pc + 1]
         self.pc += 2
 
-        # --- Базовые операции ---
         if op == 1: self.stack.append(arg)
-        elif op == 2: self.stack.pop()
+        elif op == 2:
+            if self.stack: self.stack.pop()
         elif op == 3: self.stack.append(self.memory[arg])
-        elif op == 4: self.memory[arg] = self.stack.pop()
-        elif op == 5: self.stack.append(self.stack[self.fp - arg - 1])
-        elif op == 6: self.stack[self.fp - arg - 1] = self.stack.pop()
+        elif op == 4:
+            if self.stack: self.memory[arg] = self.stack.pop()
+        elif op == 5: # LOAD_LOCAL
+            idx = self.fp - arg - 1
+            self.stack.append(self.stack[idx] if 0 <= idx < len(self.stack) else 0)
+        elif op == 6: # STORE_LOCAL
+            idx = self.fp - arg - 1
+            if 0 <= idx < len(self.stack): self.stack[idx] = self.stack.pop()
+            elif self.stack: self.stack.pop()
 
-        # --- Арифметика и Логика (СИНХРОНИЗИРОВАНО С CODEGEN) ---
-        elif op == 10: # +
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(self._mask64(a + b))
-        elif op == 11: # -
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(self._mask64(a - b))
-        elif op == 12: # *
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(self._mask64(a * b))
-        elif op == 13: # /
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(a // b if b != 0 else 0)
-        elif op == 14: # ==
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(1 if a == b else 0)
-        elif op == 15: # !=
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(1 if a != b else 0)
-        elif op == 16: # <
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(1 if a < b else 0)
-        elif op == 17: # >
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(1 if a > b else 0)
-        elif op == 18: # &&
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(1 if a and b else 0)
-        elif op == 19: # ||
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(1 if a or b else 0)
-        elif op == 7:  # &
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(a & b)
-        elif op == 8:  # |
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(a | b)
-        elif op == 9:  # ^
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append(a ^ b)
-        elif op == 32: # >>> (сдвиг вправо)
-            b, a = self.stack.pop() % 64, self.stack.pop()
-            self.stack.append(self._mask64(a) >> b)
-        elif op == 33: # << (сдвиг влево)
-            b, a = self.stack.pop() % 64, self.stack.pop()
-            self.stack.append(self._mask64(a << b))
+        # --- Арифметика и Логика ---
+        elif op == 10: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a + b))
+        elif op == 11: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a - b))
+        elif op == 12: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a * b))
+        elif op == 13: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a // b if b != 0 else 0)
+        elif op == 14: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a == b else 0)
+        elif op == 15: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a != b else 0)
+        elif op == 16: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a < b else 0)
+        elif op == 17: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a > b else 0)
+        elif op == 18: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a and b else 0)
+        elif op == 19: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a or b else 0)
+        elif op == 7:  b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a & b)
+        elif op == 8:  b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a | b)
+        elif op == 9:  b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a ^ b)
+        elif op == 32: b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a) >> b)
+        elif op == 33: b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a << b))
 
         # --- Управление ---
         elif op == 20: self.pc = arg
-        elif op == 30: # JZ (Jump if Zero)
-            cond = self.stack.pop()
-            if cond == 0: self.pc = arg
-        elif op == 21:
+        elif op == 30:
+            if self.stack.pop() == 0: self.pc = arg
+        elif op == 21: # CALL
             self.call_stack.append((self.pc, self.fp))
             self.fp = len(self.stack)
             self.pc = arg
-        elif op == 22:  # RET
-            # Проверяем, есть ли что-то на стеке. Если нет — возвращаем 0 по умолчанию.
-            val = self.stack.pop() if len(self.stack) > 0 else 0
-
-            if not self.call_stack:
-                self.running = False
+        elif op == 22: # RET
+            val = self.stack.pop() if self.stack else 0
+            if not self.call_stack: self.running = False
             else:
-                pc, fp = self.call_stack.pop()
-                self.pc, self.fp = pc, fp
+                ret_pc, prev_fp = self.call_stack.pop()
+                while len(self.stack) > prev_fp: self.stack.pop() # Очистка кадра
+                self.pc, self.fp = ret_pc, prev_fp
                 self.stack.append(val)
+                if self.pc == -1: self.running = False
 
-        # --- Память ---
-        elif op == 41: # NEW (ArrayAlloc)
-            size = self.stack.pop()
-            self.stack.append(self.hp)
-            self.hp += int(size)
-        elif op == 42: # HLOAD (ArrayAccess)
-            idx, base = self.stack.pop(), self.stack.pop()
-            self.stack.append(self.heap[int(base + idx)])
-        elif op == 43: # HSTORE (ArrayAssign)
-            val, idx, base = self.stack.pop(), self.stack.pop(), self.stack.pop()
-            self.heap[int(base + idx)] = val
-
-        # --- Системные вызовы ---
-        elif op == 45: # PRINTS
-            s = self._read_str(self.stack.pop())
-            print(s, flush=True)
-            self.stack.append(0)
-        elif op == 46: # PRINTHEX
-            print(f"0x{self.stack.pop():016x}", flush=True)
-            self.stack.append(0)
-
-        # --- Файлы ---
-        elif op == 50: # FWRITE
-            data, name = self._read_str(self.stack.pop()), self._read_str(self.stack.pop())
-            with open(name, "w", encoding="utf-8") as f: f.write(data)
-            self.stack.append(1)
-        elif op == 51: # FAPPEND
-            data, name = self._read_str(self.stack.pop()), self._read_str(self.stack.pop())
-            with open(name, "a", encoding="utf-8") as f: f.write(data)
-            self.stack.append(1)
-        elif op == 52: # FREAD
-            name = self._read_str(self.stack.pop())
+        # --- Память и Системные вызовы ---
+        elif op == 41: size = self.stack.pop(); self.stack.append(self.hp); self.hp += int(size)
+        elif op == 42: idx, base = self.stack.pop(), self.stack.pop(); self.stack.append(self.heap[int(base + idx)])
+        elif op == 43: v, i, b = self.stack.pop(), self.stack.pop(), self.stack.pop(); self.heap[int(b + i)] = v
+        elif op == 45: print(self._read_str(self.stack.pop()), flush=True); self.stack.append(0)
+        elif op == 46: print(f"0x{self.stack.pop():016x}", flush=True); self.stack.append(0)
+        elif op == 50: d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n,"w").write(d); self.stack.append(1)
+        elif op == 51: d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n,"a").write(d); self.stack.append(1)
+        elif op == 52:
             try:
-                with open(name, "r", encoding="utf-8") as f: content = f.read()
-                addr = self.hp
-                for i, c in enumerate(content): self.heap[addr+i] = ord(c)
-                self.heap[addr+len(content)] = 0
-                self.hp += len(content)+1
-                self.stack.append(addr)
+                name = self._read_str(self.stack.pop())
+                c = open(name,"r").read(); addr = self.hp
+                for i, char in enumerate(c): self.heap[addr+i] = ord(char)
+                self.heap[addr+len(c)] = 0; self.hp += len(c)+1; self.stack.append(addr)
             except: self.stack.append(0)
-        elif op == 53: # FAPPEND_INT
-            val, name = self.stack.pop(), self._read_str(self.stack.pop())
-            with open(name, "a", encoding="utf-8") as f: f.write(str(int(val)))
-            self.stack.append(1)
-
-        elif op == 61:  # json_get_hash
-            # Достаем аргументы в правильном порядке
-            key_addr = self.stack.pop()
-            idx_val = self.stack.pop()
-            json_addr = self.stack.pop()
-
-            key = self._read_str(key_addr)
-            json_str = self._read_str(json_addr)
-            idx = int(idx_val) - 1  # Блоки начинаются с 1
-
-            # Разбиваем JSON на блоки по маркеру начала объекта
+        elif op == 53: v, n = self.stack.pop(), self._read_str(self.stack.pop()); open(n,"a").write(str(int(v))); self.stack.append(1)
+        elif op == 61: # JSON_GET_HASH
+            k_a, i_v, j_a = self.stack.pop(), self.stack.pop(), self.stack.pop()
+            key, json_str, idx = self._read_str(k_a), self._read_str(j_a), int(i_v) - 1
             blocks = json_str.split("  {")
             if 1 <= idx + 1 < len(blocks):
-                # Ищем значение ключа. Добавлено (-?), чтобы ловить отрицательные хеши
-                match = re.search(fr'"{key}":\s*"(-?\d+)"', blocks[idx + 1])
-                if match:
-                    self.stack.append(int(match.group(1)))
-                else:
-                    self.stack.append(0)
-            else:
-                self.stack.append(0)
+                match = re.search(fr'"{key}":\s*"(-?\d+)"', blocks[idx+1])
+                self.stack.append(int(match.group(1)) if match else 0)
+            else: self.stack.append(0)
+
+    def execute_function(self, addr, args):
+        for a in reversed(args): self.stack.append(a)
+        self.call_stack.append((-1, self.fp))
+        self.fp = len(self.stack)
+        self.pc = addr
+        self.running = True
+        while self.running: self.step()
+        return self.stack.pop() if self.stack else 0
 
     def run(self):
         while self.running: self.step()

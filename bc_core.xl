@@ -8,9 +8,32 @@ var block_index = Int(0);
 
 func bc_init() {
     fwrite(chain_file, "[");
-    for (var i = Int(0); i < Int(8); i = i + Int(1)) { last_block_hash[i] = Int(0); }
+    for (var i = Int(0); i < Int(8); i = i + Int(1)) {
+        last_block_hash[i] = Int(0);
+    }
     block_index = Int(1);
     prints("Core: Blockchain engine initialized.");
+}
+
+// Восстановление состояния после перезагрузки API-сервера
+func bc_load_state() {
+    var content = fread(chain_file);
+    if (content == Int(0)) {
+        bc_init();
+        return Int(0);
+    }
+
+    var i = Int(1);
+    while (json_get_hash(content, i, "index") != Int(0)) {
+        block_index = i;
+        // Восстанавливаем XOR-хеш последнего блока для связи (упрощенная модель)
+        last_block_hash[Int(0)] = json_get_hash(content, i, "hash");
+        i = i + Int(1);
+    }
+    block_index = block_index + Int(1);
+    prints("Core: State restored. Next block index:");
+    printi(block_index);
+    return Int(1);
 }
 
 func bc_finish() {
@@ -45,27 +68,23 @@ func bc_commit_block(data_ptr, data_size, type_id) {
     fappend(chain_file, "    \"payload\": {\n");
 
     if (type_id == Int(1)) { // Wallet
-        fappend(chain_file, "      \"pub_key\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
+        fappend(chain_file, "      \"pub_key\": ");
+        fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"role\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, "\n");
     }
     if (type_id == Int(2)) { // NFT
-        fappend(chain_file, "      \"nft_id\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
+        fappend(chain_file, "      \"nft_id\": ");
+        fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"owner\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"status\": "); fappend_int(chain_file, data_ptr[Int(12)]); fappend(chain_file, "\n");
     }
-
     if (type_id == Int(3)) { // Transfer
-        fappend(chain_file, "      \"nft_id\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
+        fappend(chain_file, "      \"nft_id\": ");
+        fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"new_owner\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, "\n");
     }
-    if (type_id == Int(4)) { // Deactivate
-        fappend(chain_file, "      \"nft_id\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
-        fappend(chain_file, "      \"status\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
-        fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, "\n");
-    }
-
 
     fappend(chain_file, "    },\n");
     fappend(chain_file, "    \"prev_hash\": \"");
@@ -78,8 +97,8 @@ func bc_commit_block(data_ptr, data_size, type_id) {
     var raw_block = new(total_size);
     for (var m = Int(0); m < Int(8); m = m + Int(1)) { raw_block[m] = last_block_hash[m]; }
     for (var n = Int(0); n < data_size; n = n + Int(1)) { raw_block[Int(8)+n] = data_ptr[n]; }
-    var current_hash = crypto_sign(raw_block, total_size, Int(0));
 
+    var current_hash = crypto_sign(raw_block, total_size, Int(0));
     fappend(chain_file, "    \"hash\": \"");
     var c_xor = Int(0);
     for (var k = Int(0); k < Int(8); k = k + Int(1)) { c_xor = c_xor ^ current_hash[k]; }
@@ -88,4 +107,5 @@ func bc_commit_block(data_ptr, data_size, type_id) {
 
     for (var x = Int(0); x < Int(8); x = x + Int(1)) { last_block_hash[x] = current_hash[x]; }
     block_index = block_index + Int(1);
+    return Int(1);
 }
