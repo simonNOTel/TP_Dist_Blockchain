@@ -1,6 +1,7 @@
 // bc_core.xl
 import "crypto.xl";
 import "file.xl";
+import "SHA512.xl"; // <--- ДОБАВЛЕНО: Импорт для доступа к инициализации
 
 var chain_file = "chain.json";
 var last_block_hash = new(Int(8));
@@ -8,6 +9,8 @@ var block_index = Int(0);
 
 // Инициализация блокчейна (создание нового файла)
 func bc_init() {
+    init_sha_constants(); // <--- ДОБАВЛЕНО: Инициализация криптографии
+
     fwrite(chain_file, "[");
     for (var i = Int(0); i < Int(8); i = i + Int(1)) {
         last_block_hash[i] = Int(0);
@@ -18,9 +21,12 @@ func bc_init() {
 
 // Восстановление состояния из файла (для API-сервера)
 func bc_load_state() {
+    init_sha_constants(); // <--- ДОБАВЛЕНО: Инициализация криптографии при загрузке
+
     var content = fread(chain_file);
     if (content == Int(0)) {
-        bc_init(); // Если файла нет, начинаем с нуля
+        bc_init();
+        // Если файла нет, начинаем с нуля
         return Int(0);
     }
 
@@ -46,6 +52,8 @@ func bc_finish() {
 
 // Полный криптографический аудит целостности
 func bc_verify_full_integrity() {
+    init_sha_constants(); // <--- ДОБАВЛЕНО: На случай, если проверка вызвана отдельно
+
     prints("Verify: Starting full cryptographic audit...");
     var content = fread(chain_file);
     if (content == Int(0)) { return Int(1); }
@@ -66,7 +74,8 @@ func bc_verify_full_integrity() {
 
 // Запись нового блока в реестр
 func bc_commit_block(data_ptr, data_size, type_id) {
-    if (block_index > Int(1)) { fappend(chain_file, ","); }
+    if (block_index > Int(1)) { fappend(chain_file, ",");
+    }
     fappend(chain_file, "\n  {");
     fappend(chain_file, "\n    \"index\": "); fappend_int(chain_file, block_index); fappend(chain_file, ",\n");
     fappend(chain_file, "    \"type\": "); fappend_int(chain_file, type_id); fappend(chain_file, ",\n");
@@ -92,13 +101,13 @@ func bc_commit_block(data_ptr, data_size, type_id) {
         fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, "\n");
     }
     if (type_id == Int(4)) { // Deactivate
-        fappend(chain_file, "      \"nft_id\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
+        fappend(chain_file, "      \"nft_id\": ");
+        fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"status\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, "\n");
     }
 
     fappend(chain_file, "    },\n");
-
     // Запись связей (hashes)
     fappend(chain_file, "    \"prev_hash\": \"");
     var p_xor = Int(0);
@@ -109,8 +118,10 @@ func bc_commit_block(data_ptr, data_size, type_id) {
     // Криптографическая подпись данных
     var total_size = Int(8) + data_size;
     var raw_block = new(total_size);
-    for (var m = Int(0); m < Int(8); m = m + Int(1)) { raw_block[m] = last_block_hash[m]; }
-    for (var n = Int(0); n < data_size; n = n + Int(1)) { raw_block[Int(8)+n] = data_ptr[n]; }
+    for (var m = Int(0); m < Int(8); m = m + Int(1)) { raw_block[m] = last_block_hash[m];
+    }
+    for (var n = Int(0); n < data_size; n = n + Int(1)) { raw_block[Int(8)+n] = data_ptr[n];
+    }
 
     var current_hash = crypto_sign(raw_block, total_size, Int(0));
     fappend(chain_file, "    \"hash\": \"");
@@ -120,7 +131,8 @@ func bc_commit_block(data_ptr, data_size, type_id) {
     fappend(chain_file, "\"\n  }");
 
     // Обновление состояния в памяти
-    for (var x = Int(0); x < Int(8); x = x + Int(1)) { last_block_hash[x] = current_hash[x]; }
+    for (var x = Int(0); x < Int(8); x = x + Int(1)) { last_block_hash[x] = current_hash[x];
+    }
     block_index = block_index + Int(1);
 
     return Int(1);

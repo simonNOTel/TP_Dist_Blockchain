@@ -2,17 +2,20 @@
 import "base.xl";
 import "bc_core.xl";
 import "actions.xl";
+import "SHA512.xl"; // Импортируем на всякий случай
 
 func main() {
     prints("=== GEM BLOCKCHAIN SYSTEM START ===");
+
+    // Инициализация криптографии (важно!)
+    init_sha_constants();
 
     // Инициализация блокчейна (если нужно сбросить файл)
     bc_init();
     base_init();
 
-    // УДАЛЕНЫ или ЗАКОММЕНТИРОВАНЫ строки создания кошелька и NFT
+    // Тестовые вызовы можно раскомментировать при необходимости
     // action_create_wallet(...)
-    // action_nft_create(...)
 
     bc_finish();
 
