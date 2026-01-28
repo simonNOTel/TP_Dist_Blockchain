@@ -1,4 +1,4 @@
-// main.xl - Точка входа и симуляция бизнес-логики
+// main.xl
 import "base.xl";
 import "bc_core.xl";
 import "actions.xl";
@@ -6,57 +6,20 @@ import "actions.xl";
 func main() {
     prints("=== GEM BLOCKCHAIN SYSTEM START ===");
     bc_init();
-
-    // Сначала проверяем старые данные, если они есть
-    if (bc_verify_chain() == Int(0)) {
-        prints("STOP: Chain integrity compromised!");
-        return Int(0);
-    }
-
     base_init();
 
-    prints("System initialized. Ready for transactions.");
-    prints("");
+    action_create_wallet(0xABCD1234, Int(1));
 
-    // 2. Симуляция: Регистрация нового участника (Студента)
-    // Допустим, ID пользователя — это упрощенный публичный ключ
-    var student_id = 0xABCD1234;
-    action_create_wallet(student_id, Int(1)); // Роль 1 - Гражданин
-
-    prints("");
-
-    // 3. Симуляция: Выпуск NFT-диплома организацией
-    // Данные для минтинга:
-    var nft_id = Int(1001);        // Уникальный номер записи
-    var corp_ndt = 0x375;          // ID НДТП из белого списка
-
-    // Генерируем тестовый хеш документа (диплома в PDF)
     var doc_hash = new(Int(8));
-    doc_hash[Int(0)] = 0x55555555; // Условный результат SHA-512
-    doc_hash[Int(7)] = 0xEEEEEEEE;
+    doc_hash[Int(0)] = 0x55555555;
+    action_nft_create(Int(1001), 0xABCD1234, 0x375, doc_hash);
 
-    prints("Action: NDT is issuing a diploma NFT...");
-    action_nft_create(nft_id, student_id, corp_ndt, doc_hash);
-
-    prints("");
-
-    // 4. Симуляция: Проверка и передача (например, предъявление документа)
-    // Студент "передает" или подтверждает владение для другой стороны
-    var employer_id = 0x99998888;
-    action_nft_transfer(nft_id, employer_id);
-
-    prints("");
-
-    // 5. Симуляция: Отзыв документа (если документ аннулирован)
-    prints("Action: Revoking diploma due to expiration...");
-    action_nft_deactivate(nft_id, corp_ndt);
-
-    prints("");
-    prints("=== SIMULATION FINISHED ===");
-
-    // ВЫЗОВ ЗАКРЫТИЯ ФАЙЛА
     bc_finish();
 
-    prints("All transactions are recorded in chain.json and logs.txt");
+    if (bc_verify_full_integrity() == Int(0)) {
+        prints("ALERT: Integrity failure!");
+    } else {
+        prints("SUCCESS: Chain is valid.");
+    }
     return Int(0);
 }

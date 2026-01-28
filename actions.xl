@@ -1,4 +1,4 @@
-// actions.xl
+// actions.xl - Реализация действий (Транзакции)
 import "base.xl";
 import "bc_core.xl";
 
@@ -9,7 +9,7 @@ func action_create_wallet(pub_key, role) {
     wallet[Int(1)] = role;
     wallet[Int(2)] = Int(1715000000);
 
-    // Вызов с типом 1
+    // ИСПРАВЛЕНО: добавлен Int(1)
     return bc_commit_block(wallet, WALLET_STRUCT_SIZE, Int(1));
 }
 
@@ -19,7 +19,6 @@ func action_nft_create(nft_id, owner, creator, doc_hash_ptr) {
         prints("Error: Unauthorized creator!");
         return Int(0);
     }
-
     var nft = new(NFT_STRUCT_SIZE);
     nft[Int(0)] = nft_id;
     nft[Int(1)] = owner;
@@ -28,9 +27,9 @@ func action_nft_create(nft_id, owner, creator, doc_hash_ptr) {
         nft[Int(3) + i] = doc_hash_ptr[i];
     }
     nft[Int(11)] = Int(1715000001);
-    nft[Int(12)] = Int(1); // Status Active
+    nft[Int(12)] = Int(1);
 
-    // Вызов с типом 2
+    // ИСПРАВЛЕНО: добавлен Int(2)
     return bc_commit_block(nft, NFT_STRUCT_SIZE, Int(2));
 }
 
@@ -41,7 +40,7 @@ func action_nft_transfer(nft_id, new_owner) {
     transfer_data[Int(1)] = new_owner;
     transfer_data[Int(2)] = Int(1715000002);
 
-    // Вызов с типом 3
+    // ИСПРАВЛЕНО: добавлен Int(3)
     return bc_commit_block(transfer_data, Int(3), Int(3));
 }
 
@@ -51,12 +50,11 @@ func action_nft_deactivate(nft_id, creator) {
         prints("Error: Only creator can deactivate!");
         return Int(0);
     }
-
     var deactivate_data = new(Int(3));
     deactivate_data[Int(0)] = nft_id;
-    deactivate_data[Int(1)] = Int(0); // Status Inactive
+    deactivate_data[Int(1)] = Int(0);
     deactivate_data[Int(2)] = Int(1715000003);
 
-    // Вызов с типом 4
+    // ИСПРАВЛЕНО: добавлен Int(4)
     return bc_commit_block(deactivate_data, Int(3), Int(4));
 }

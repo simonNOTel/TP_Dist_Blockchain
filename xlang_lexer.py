@@ -8,8 +8,7 @@ TOKEN_SPEC = [
     ("COMMENT", r"//.*"),
     ("SKIP", r"[ \t\r]+"),
     ("NEWLINE", r"\n"),
-    # ИСПРАВЛЕНО: Регулярное выражение теперь поддерживает экранированные кавычки \"
-    ("STRING", r'"(?:\\.|[^"\\])*"'),
+    ("STRING", r'"(?:\\.|[^"\\])*"'), # ИСПРАВЛЕНО
     ("NUMBER", r"0x[0-9A-Fa-f]+|\d+"),
     ("ID", r"[A-Za-z_][A-Za-z0-9_]*"),
     ("OP", r"&&|\|\||==|!=|>=|<=|>>>|>>|<<|[\+\-\*/><=\^&|]"),
@@ -21,20 +20,12 @@ TOKEN_SPEC = [
 
 def tokenize(code):
     tokens = []
-    line = 1
-    line_start = 0
+    line, line_start = 1, 0
     reg = "|".join(f"(?P<{name}>{pattern})" for name, pattern in TOKEN_SPEC)
     for mo in re.finditer(reg, code):
-        kind = mo.lastgroup
-        value = mo.group()
-        column = mo.start() - line_start
-        if kind == "NEWLINE":
-            line_start = mo.end()
-            line += 1
-            continue
-        elif kind == "SKIP" or kind == "COMMENT":
-            continue
-        elif kind == "ID" and value in KEYWORDS:
-            kind = value.upper()
-        tokens.append(Token(kind, value, line, column))
+        kind, value = mo.lastgroup, mo.group()
+        if kind == "NEWLINE": line_start, line = mo.end(), line + 1
+        elif kind not in ["SKIP", "COMMENT"]:
+            if kind == "ID" and value in KEYWORDS: kind = value.upper()
+            tokens.append(Token(kind, value, line, mo.start() - line_start))
     return tokens

@@ -3,61 +3,47 @@ import "crypto.xl";
 import "file.xl";
 
 var chain_file = "chain.json";
-var log_file = "logs.txt";
-
 var last_block_hash = new(Int(8));
 var block_index = Int(0);
 
 func bc_init() {
-    // Записываем только открывающую скобку без переноса строки
     fwrite(chain_file, "[");
-
-    for (var i = Int(0); i < Int(8); i = i + Int(1)) {
-        last_block_hash[i] = Int(0);
-    }
+    for (var i = Int(0); i < Int(8); i = i + Int(1)) { last_block_hash[i] = Int(0); }
     block_index = Int(1);
-    fwrite(log_file, "--- Kernel Boot: System Ready ---\n");
     prints("Core: Blockchain engine initialized.");
 }
 
-func bc_verify_chain() {
+func bc_finish() {
+    fappend(chain_file, "\n]");
+    prints("Core: Chain finalized.");
+}
+
+func bc_verify_full_integrity() {
+    prints("Verify: Starting full cryptographic audit...");
     var content = fread(chain_file);
-    if (content == Int(0)) {
-        return Int(0);
+    if (content == Int(0)) { return Int(1); }
+
+    var last_known_hash = Int(0);
+    for (var i = Int(1); i < block_index; i = i + Int(1)) {
+        var file_prev = json_get_hash(content, i, "prev_hash");
+        if (file_prev != last_known_hash) {
+            prints("Verify: ERROR! Chain broken at block:");
+            printi(i);
+            return Int(0);
+        }
+        last_known_hash = json_get_hash(content, i, "hash");
     }
+    prints("Verify: All cryptographic links are valid.");
     return Int(1);
 }
 
-// НОВАЯ ФУНКЦИЯ: Завершает JSON массив
-func bc_finish() {
-    fappend(chain_file, "\n]");
-    prints("Core: Chain file finalized with ']'");
-}
-
 func bc_commit_block(data_ptr, data_size, type_id) {
-    prints("Core: Committing strict JSON block...");
-
-    // ЛОГИКА ЗАПЯТОЙ: Если это не первый блок, сначала ставим запятую
-    if (block_index > Int(1)) {
-        fappend(chain_file, ",");
-    }
+    if (block_index > Int(1)) { fappend(chain_file, ","); }
     fappend(chain_file, "\n  {");
-
-    var total_size = Int(8) + data_size;
-    var raw_block = new(total_size);
-    for (var i = Int(0); i < Int(8); i = i + Int(1)) {
-        raw_block[i] = last_block_hash[i];
-    }
-    for (var j = Int(0); j < data_size; j = j + Int(1)) {
-        raw_block[Int(8) + j] = data_ptr[j];
-    }
-
-    var current_hash = crypto_sign(raw_block, total_size, Int(0));
-
     fappend(chain_file, "\n    \"index\": "); fappend_int(chain_file, block_index); fappend(chain_file, ",\n");
     fappend(chain_file, "    \"type\": "); fappend_int(chain_file, type_id); fappend(chain_file, ",\n");
-
     fappend(chain_file, "    \"payload\": {\n");
+
     if (type_id == Int(1)) { // Wallet
         fappend(chain_file, "      \"pub_key\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"role\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
@@ -66,10 +52,9 @@ func bc_commit_block(data_ptr, data_size, type_id) {
     if (type_id == Int(2)) { // NFT
         fappend(chain_file, "      \"nft_id\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"owner\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
-        fappend(chain_file, "      \"creator\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, ",\n");
-        fappend(chain_file, "      \"status\": "); fappend_int(chain_file, data_ptr[Int(12)]); fappend(chain_file, ",\n");
-        fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(11)]); fappend(chain_file, "\n");
+        fappend(chain_file, "      \"status\": "); fappend_int(chain_file, data_ptr[Int(12)]); fappend(chain_file, "\n");
     }
+
     if (type_id == Int(3)) { // Transfer
         fappend(chain_file, "      \"nft_id\": "); fappend_int(chain_file, data_ptr[Int(0)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"new_owner\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
@@ -80,23 +65,27 @@ func bc_commit_block(data_ptr, data_size, type_id) {
         fappend(chain_file, "      \"status\": "); fappend_int(chain_file, data_ptr[Int(1)]); fappend(chain_file, ",\n");
         fappend(chain_file, "      \"timestamp\": "); fappend_int(chain_file, data_ptr[Int(2)]); fappend(chain_file, "\n");
     }
-    fappend(chain_file, "    },\n");
 
+
+    fappend(chain_file, "    },\n");
     fappend(chain_file, "    \"prev_hash\": \"");
     var p_xor = Int(0);
     for (var p = Int(0); p < Int(8); p = p + Int(1)) { p_xor = p_xor ^ last_block_hash[p]; }
     fappend_int(chain_file, p_xor);
     fappend(chain_file, "\",\n");
 
+    var total_size = Int(8) + data_size;
+    var raw_block = new(total_size);
+    for (var m = Int(0); m < Int(8); m = m + Int(1)) { raw_block[m] = last_block_hash[m]; }
+    for (var n = Int(0); n < data_size; n = n + Int(1)) { raw_block[Int(8)+n] = data_ptr[n]; }
+    var current_hash = crypto_sign(raw_block, total_size, Int(0));
+
     fappend(chain_file, "    \"hash\": \"");
     var c_xor = Int(0);
     for (var k = Int(0); k < Int(8); k = k + Int(1)) { c_xor = c_xor ^ current_hash[k]; }
     fappend_int(chain_file, c_xor);
-    fappend(chain_file, "\"\n");
+    fappend(chain_file, "\"\n  }");
 
-    // Закрываем объект блока БЕЗ запятой в конце
-    fappend(chain_file, "  }");
-
-    for (var m = Int(0); m < Int(8); m = m + Int(1)) { last_block_hash[m] = current_hash[m]; }
+    for (var x = Int(0); x < Int(8); x = x + Int(1)) { last_block_hash[x] = current_hash[x]; }
     block_index = block_index + Int(1);
 }

@@ -1,4 +1,5 @@
 import sys
+import re
 
 class XVM:
     def __init__(self, code):
@@ -121,9 +122,12 @@ class XVM:
             self.call_stack.append((self.pc, self.fp))
             self.fp = len(self.stack)
             self.pc = arg
-        elif op == 22:
-            val = self.stack.pop()
-            if not self.call_stack: self.running = False
+        elif op == 22:  # RET
+            # Проверяем, есть ли что-то на стеке. Если нет — возвращаем 0 по умолчанию.
+            val = self.stack.pop() if len(self.stack) > 0 else 0
+
+            if not self.call_stack:
+                self.running = False
             else:
                 pc, fp = self.call_stack.pop()
                 self.pc, self.fp = pc, fp
@@ -173,6 +177,28 @@ class XVM:
             val, name = self.stack.pop(), self._read_str(self.stack.pop())
             with open(name, "a", encoding="utf-8") as f: f.write(str(int(val)))
             self.stack.append(1)
+
+        elif op == 61:  # json_get_hash
+            # Достаем аргументы в правильном порядке
+            key_addr = self.stack.pop()
+            idx_val = self.stack.pop()
+            json_addr = self.stack.pop()
+
+            key = self._read_str(key_addr)
+            json_str = self._read_str(json_addr)
+            idx = int(idx_val) - 1  # Блоки начинаются с 1
+
+            # Разбиваем JSON на блоки по маркеру начала объекта
+            blocks = json_str.split("  {")
+            if 1 <= idx + 1 < len(blocks):
+                # Ищем значение ключа. Добавлено (-?), чтобы ловить отрицательные хеши
+                match = re.search(fr'"{key}":\s*"(-?\d+)"', blocks[idx + 1])
+                if match:
+                    self.stack.append(int(match.group(1)))
+                else:
+                    self.stack.append(0)
+            else:
+                self.stack.append(0)
 
     def run(self):
         while self.running: self.step()

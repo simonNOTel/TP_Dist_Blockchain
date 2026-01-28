@@ -136,7 +136,16 @@ class Parser:
             while self.peek() and self.peek().type != "RBRACE":
                 then_body.append(self.parse_stmt())
             self.eat("RBRACE")
-            res = If(cond, then_body, [])
+
+            # ПОДДЕРЖКА БЛОКА ELSE
+            else_body = []
+            if self.peek() and self.peek().type == "ELSE":
+                self.eat("ELSE")
+                self.eat("LBRACE")
+                while self.peek() and self.peek().type != "RBRACE":
+                    else_body.append(self.parse_stmt())
+                self.eat("RBRACE")
+            res = If(cond, then_body, else_body)
         elif t.type == "FOR":
             self.eat()
             self.eat("LPAREN")
@@ -239,16 +248,14 @@ class Parser:
             return Number(val)
 
         if t.type == "STRING":
-            # Исправленная обработка строк:
-            # 1. Срезаем внешние кавычки [1:-1]
-            # 2. Декодируем escape-последовательности (\n, \", \\ и др.)
+            # Исправленное декодирование строк для поддержки \n и экранированных кавычек
             raw_val = t.value[1:-1]
             val = raw_val.encode('utf-8').decode('unicode_escape')
             return StringLiteral(val)
 
         if t.type == "NEW":
-            self.eat("LPAREN");
-            size = self.parse_expr();
+            self.eat("LPAREN")
+            size = self.parse_expr()
             self.eat("RPAREN")
             return ArrayAlloc(size)
         if t.type == "ID":
@@ -257,7 +264,7 @@ class Parser:
                 self.eat("LPAREN")
                 sign = 1
                 if self.peek().type == "OP" and self.peek().value == "-":
-                    self.eat();
+                    self.eat()
                     sign = -1
                 num_t = self.eat("NUMBER")
                 val = int(num_t.value, 16) if num_t.value.startswith("0x") else int(num_t.value)
@@ -276,13 +283,13 @@ class Parser:
                 self.eat("RPAREN")
                 return Call(name, args)
             if self.peek() and self.peek().type == "LBRACKET":
-                self.eat("LBRACKET");
-                idx = self.parse_expr();
+                self.eat("LBRACKET")
+                idx = self.parse_expr()
                 self.eat("RBRACKET")
                 return ArrayAccess(name, idx)
             return Var(name)
         if t.type == "LPAREN":
-            node = self.parse_expr();
+            node = self.parse_expr()
             self.eat("RPAREN")
             return node
         raise Exception(f"Unexpected token {t.type} at line {t.line}")
