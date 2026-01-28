@@ -19,7 +19,7 @@ class XVM:
     def dump_heap(self, filename="heap_debug.log"):
         print(f"[VM] Saving heap dump to {filename}...")
         with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"--- XVM HEAP DUMP ---\n")
+            f.write(f"--- XVM HEAP DUMP - --\n")
             f.write(f"PC: {self.pc} | FP: {self.fp} | HP: {self.hp}\n")
             f.write("-" * 30 + "\n")
             for addr in range(100000, self.hp + 10):
