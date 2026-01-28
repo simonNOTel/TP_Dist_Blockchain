@@ -1,1 +1,1 @@
---- Kernel Boot: System Ready ---\n
+--- Kernel Boot: System Ready ---

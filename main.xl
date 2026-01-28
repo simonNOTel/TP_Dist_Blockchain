@@ -53,7 +53,10 @@ func main() {
 
     prints("");
     prints("=== SIMULATION FINISHED ===");
-    prints("All transactions are recorded in chain.json and logs.txt");
 
+    // ВЫЗОВ ЗАКРЫТИЯ ФАЙЛА
+    bc_finish();
+
+    prints("All transactions are recorded in chain.json and logs.txt");
     return Int(0);
 }

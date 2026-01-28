@@ -1,23 +1,20 @@
-// actions.xl - Реализация действий (Транзакции)
+// actions.xl
 import "base.xl";
 import "bc_core.xl";
 
-// 1. Создание кошелька
 func action_create_wallet(pub_key, role) {
     prints("Action: Creating Wallet...");
     var wallet = new(WALLET_STRUCT_SIZE);
     wallet[Int(0)] = pub_key;
     wallet[Int(1)] = role;
-    wallet[Int(2)] = Int(1715000000); // Системное время
+    wallet[Int(2)] = Int(1715000000);
 
-    // Записываем факт создания кошелька в блокчейн
-    return bc_commit_block(wallet, WALLET_STRUCT_SIZE);
+    // Вызов с типом 1
+    return bc_commit_block(wallet, WALLET_STRUCT_SIZE, Int(1));
 }
 
-// 2. Создание (Mint) NFT
 func action_nft_create(nft_id, owner, creator, doc_hash_ptr) {
     prints("Action: Minting NFT Document...");
-
     if (entity_is_authorized(creator) == Int(0)) {
         prints("Error: Unauthorized creator!");
         return Int(0);
@@ -27,34 +24,29 @@ func action_nft_create(nft_id, owner, creator, doc_hash_ptr) {
     nft[Int(0)] = nft_id;
     nft[Int(1)] = owner;
     nft[Int(2)] = creator;
-
     for (var i = Int(0); i < Int(8); i = i + Int(1)) {
         nft[Int(3) + i] = doc_hash_ptr[i];
     }
-
     nft[Int(11)] = Int(1715000001);
-    nft[Int(12)] = Int(1); // Активен
+    nft[Int(12)] = Int(1); // Status Active
 
-    return bc_commit_block(nft, NFT_STRUCT_SIZE);
+    // Вызов с типом 2
+    return bc_commit_block(nft, NFT_STRUCT_SIZE, Int(2));
 }
 
-// 3. Передача NFT (Смена владельца)
-func action_nft_transfer(nft_id, current_owner, new_owner) {
+func action_nft_transfer(nft_id, new_owner) {
     prints("Action: Transferring NFT...");
-
     var transfer_data = new(Int(3));
     transfer_data[Int(0)] = nft_id;
     transfer_data[Int(1)] = new_owner;
     transfer_data[Int(2)] = Int(1715000002);
 
-    // В блокчейне это новая запись, подтверждающая переход права
-    return bc_commit_block(transfer_data, Int(3));
+    // Вызов с типом 3
+    return bc_commit_block(transfer_data, Int(3), Int(3));
 }
 
-// 4. Вывод в неактивный режим (Отозвать документ)
 func action_nft_deactivate(nft_id, creator) {
     prints("Action: Deactivating NFT...");
-
     if (entity_is_authorized(creator) == Int(0)) {
         prints("Error: Only creator can deactivate!");
         return Int(0);
@@ -62,8 +54,9 @@ func action_nft_deactivate(nft_id, creator) {
 
     var deactivate_data = new(Int(3));
     deactivate_data[Int(0)] = nft_id;
-    deactivate_data[Int(1)] = Int(0); // Новый статус: неактивен
+    deactivate_data[Int(1)] = Int(0); // Status Inactive
     deactivate_data[Int(2)] = Int(1715000003);
 
-    return bc_commit_block(deactivate_data, Int(3));
+    // Вызов с типом 4
+    return bc_commit_block(deactivate_data, Int(3), Int(4));
 }
