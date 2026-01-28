@@ -1,6 +1,7 @@
 // SHA512.xl - Полная реализация по стандарту FIPS 180-4
 
 var K = new(Int(80));
+
 // Инициализация всех 80 констант (кубические корни простых чисел)
 func init_sha_constants() {
     K[Int(0)] = 0x428a2f98d728ae22; K[Int(1)] = 0x7137449123ef65cd;
@@ -45,8 +46,8 @@ func init_sha_constants() {
     K[Int(78)] = 0x5fcb6fab3ad6faec; K[Int(79)] = 0x6c44198c4a475817;
 }
 
-// Функции вращения и сдвига
 func rotr(x, n) {
+    // Вращение вправо: (x >>> n) | (x << (64-n))
     return (x >>> n) | (x << (Int(64) - n));
 }
 
