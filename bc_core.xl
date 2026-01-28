@@ -8,10 +8,8 @@ var log_file = "logs.txt";
 var last_block_hash = new(Int(8));
 var block_index = Int(0);
 
-
-
 func bc_init() {
-    // Инициализируем начальный хеш нулями (для генезис-блока)
+    // Инициализируем начальный хеш нулями
     for (var i = Int(0); i < Int(8); i = i + Int(1)) {
         last_block_hash[i] = Int(0);
     }
@@ -27,14 +25,12 @@ func bc_verify_chain() {
         prints("Verify: No chain file found.");
         return Int(1);
     }
-    // Здесь можно добавить логику проверки целостности
     return Int(1);
 }
 
 func bc_commit_block(data_ptr, data_size) {
     prints("Core: Committing block...");
 
-    // 1. Создаем структуру блока для хеширования (prev_hash + data)
     var total_size = Int(8) + data_size;
     var raw_block = new(total_size);
 
@@ -45,36 +41,38 @@ func bc_commit_block(data_ptr, data_size) {
         raw_block[Int(8) + j] = data_ptr[j];
     }
 
-    // 2. Вычисляем хеш текущего блока
+    // Вычисляем полный хеш (массив из 8 слов)
     var current_hash = crypto_sign(raw_block, total_size, Int(0));
 
-    // 3. Запись в файл JSON структуры
+    // Запись блока в JSON с XOR-сверткой
     fappend(chain_file, "{ 'index': ");
     fappend_int(chain_file, block_index);
 
-    // ЗАПИСЬ PREV_HASH (Хеш предыдущего блока)
+    // Запись PREV_HASH (десятичный XOR)
     fappend(chain_file, ", 'prev_hash': '");
+    var prev_xor = Int(0);
     for (var p = Int(0); p < Int(8); p = p + Int(1)) {
-        fappend_int(chain_file, last_block_hash[p]);
+        prev_xor = prev_xor ^ last_block_hash[p];
     }
+    fappend_int(chain_file, prev_xor);
 
-    // ЗАПИСЬ ТЕКУЩЕГО HASH
+    // Запись текущего HASH (десятичный XOR)
     fappend(chain_file, "', 'hash': '");
+    var curr_xor = Int(0);
     for (var k = Int(0); k < Int(8); k = k + Int(1)) {
-        fappend_int(chain_file, current_hash[k]);
+        curr_xor = curr_xor ^ current_hash[k];
     }
+    fappend_int(chain_file, curr_xor);
 
     fappend(chain_file, "', 'size': ");
     fappend_int(chain_file, data_size);
     fappend(chain_file, " }\n");
 
-    // 4. ОБНОВЛЕНИЕ СОСТОЯНИЯ (Критически важно!)
-    // Теперь текущий хеш становится "предыдущим" для следующего блока
+    // Обновление состояния для следующего блока
     for (var m = Int(0); m < Int(8); m = m + Int(1)) {
         last_block_hash[m] = current_hash[m];
     }
 
     block_index = block_index + Int(1);
-
     prints("Core: Block committed successfully.");
 }
