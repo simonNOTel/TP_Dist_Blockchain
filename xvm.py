@@ -134,4 +134,4 @@ class XVM:
         return self.stack.pop() if self.stack else 0
 
     def run(self):
-        while self.running: self.step()я
+        while self.running: self.step()
