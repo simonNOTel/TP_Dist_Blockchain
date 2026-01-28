@@ -1,5 +1,7 @@
 import sys
 import re
+import random  # <--- ДОБАВЛЕН ИМПОРТ
+
 
 class XVM:
     def __init__(self, code):
@@ -50,10 +52,12 @@ class XVM:
         self.pc += 2
 
         # --- Базовые операции ---
-        if op == 1: self.stack.append(arg)
+        if op == 1:
+            self.stack.append(arg)
         elif op == 2:
             if self.stack: self.stack.pop()
-        elif op == 3: self.stack.append(self.memory[arg])
+        elif op == 3:
+            self.stack.append(self.memory[arg])
         elif op == 4:
             if self.stack: self.memory[arg] = self.stack.pop()
         elif op == 5:
@@ -64,65 +68,106 @@ class XVM:
             if 0 <= idx < len(self.stack) and self.stack: self.stack[idx] = self.stack.pop()
 
         # --- Арифметика и Логика ---
-        elif op == 10: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a + b))
-        elif op == 11: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a - b))
-        elif op == 12: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a * b))
-        elif op == 13: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a // b if b != 0 else 0)
-        elif op == 14: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a == b else 0)
-        elif op == 15: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a != b else 0)
-        elif op == 16: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a < b else 0)
-        elif op == 17: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a > b else 0)
-        elif op == 18: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a and b else 0)
-        elif op == 19: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a or b else 0)
-        elif op == 7:  b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a & b)
-        elif op == 8:  b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a | b)
-        elif op == 9:  b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a ^ b)
-        elif op == 32: b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a) >> b)
-        elif op == 33: b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a << b))
+        elif op == 10:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a + b))
+        elif op == 11:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a - b))
+        elif op == 12:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a * b))
+        elif op == 13:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a // b if b != 0 else 0)
+        elif op == 14:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a == b else 0)
+        elif op == 15:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a != b else 0)
+        elif op == 16:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a < b else 0)
+        elif op == 17:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a > b else 0)
+        elif op == 18:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a and b else 0)
+        elif op == 19:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a or b else 0)
+        elif op == 7:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a & b)
+        elif op == 8:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a | b)
+        elif op == 9:
+            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a ^ b)
+        elif op == 32:
+            b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a) >> b)
+        elif op == 33:
+            b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a << b))
 
         # --- Управление ---
-        elif op == 20: self.pc = arg
+        elif op == 20:
+            self.pc = arg
         elif op == 30:
             if self.stack.pop() == 0: self.pc = arg
-        elif op == 21: # CALL
+        elif op == 21:  # CALL
             self.call_stack.append((self.pc, self.fp))
             self.fp = len(self.stack)
             self.pc = arg
-        elif op == 22: # RET
+        elif op == 22:  # RET
             val = self.stack.pop() if len(self.stack) > 0 else 0
-            if not self.call_stack: self.running = False
+            if not self.call_stack:
+                self.running = False
             else:
                 ret_pc, prev_fp = self.call_stack.pop()
-                while len(self.stack) > prev_fp: self.stack.pop() # Чистим кадр
+                while len(self.stack) > prev_fp: self.stack.pop()  # Чистим кадр
                 self.pc, self.fp = ret_pc, prev_fp
                 self.stack.append(val)
                 if self.pc == -1: self.running = False
 
         # --- Память и Системные вызовы ---
-        elif op == 41: size = self.stack.pop(); self.stack.append(self.hp); self.hp += int(size)
-        elif op == 42: idx, base = self.stack.pop(), self.stack.pop(); self.stack.append(self.heap[int(base + idx)])
-        elif op == 43: v, i, b = self.stack.pop(), self.stack.pop(), self.stack.pop(); self.heap[int(b + i)] = v
-        elif op == 45: print(self._read_str(self.stack.pop()), flush=True); self.stack.append(0)
-        elif op == 46: print(f"0x{self.stack.pop():016x}", flush=True); self.stack.append(0)
-        elif op == 50: d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n,"w", encoding="utf-8").write(d); self.stack.append(1)
-        elif op == 51: d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n,"a", encoding="utf-8").write(d); self.stack.append(1)
+        elif op == 41:
+            size = self.stack.pop(); self.stack.append(self.hp); self.hp += int(size)
+        elif op == 42:
+            idx, base = self.stack.pop(), self.stack.pop(); self.stack.append(self.heap[int(base + idx)])
+        elif op == 43:
+            v, i, b = self.stack.pop(), self.stack.pop(), self.stack.pop(); self.heap[int(b + i)] = v
+        elif op == 45:
+            print(self._read_str(self.stack.pop()), flush=True); self.stack.append(0)
+        elif op == 46:
+            print(f"0x{self.stack.pop():016x}", flush=True); self.stack.append(0)
+        elif op == 50:
+            d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n, "w",
+                                                                                            encoding="utf-8").write(
+                d); self.stack.append(1)
+        elif op == 51:
+            d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n, "a",
+                                                                                            encoding="utf-8").write(
+                d); self.stack.append(1)
         elif op == 52:
             try:
                 name = self._read_str(self.stack.pop())
-                with open(name, "r", encoding="utf-8") as f: content = f.read()
+                with open(name, "r", encoding="utf-8") as f:
+                    content = f.read()
                 addr = self.hp
-                for i, c in enumerate(content): self.heap[addr+i] = ord(c)
-                self.heap[addr+len(content)] = 0; self.hp += len(content)+1; self.stack.append(addr)
-            except: self.stack.append(0)
-        elif op == 53: v, n = self.stack.pop(), self._read_str(self.stack.pop()); open(n,"a", encoding="utf-8").write(str(int(v))); self.stack.append(1)
+                for i, c in enumerate(content): self.heap[addr + i] = ord(c)
+                self.heap[addr + len(content)] = 0;
+                self.hp += len(content) + 1;
+                self.stack.append(addr)
+            except:
+                self.stack.append(0)
+        elif op == 53:
+            v, n = self.stack.pop(), self._read_str(self.stack.pop()); open(n, "a", encoding="utf-8").write(
+                str(int(v))); self.stack.append(1)
+
+        # --- НОВЫЙ ОПКОД: RANDOM (Генерация ключей внутри VM) ---
+        elif op == 60:
+            # Генерируем случайное 63-битное число (чтобы не было проблем со знаком)
+            self.stack.append(random.getrandbits(63))
+
         elif op == 61:
             k_a, i_v, j_a = self.stack.pop(), self.stack.pop(), self.stack.pop()
             key, json_str, idx = self._read_str(k_a), self._read_str(j_a), int(i_v) - 1
             blocks = json_str.split("  {")
             if 1 <= idx + 1 < len(blocks):
-                match = re.search(fr'"{key}":\s*"(-?\d+)"', blocks[idx+1])
+                match = re.search(fr'"{key}":\s*"(-?\d+)"', blocks[idx + 1])
                 self.stack.append(int(match.group(1)) if match else 0)
-            else: self.stack.append(0)
+            else:
+                self.stack.append(0)
 
     def execute_function(self, addr, args):
         for a in reversed(args): self.stack.append(a)

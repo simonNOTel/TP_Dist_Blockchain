@@ -47,7 +47,6 @@ func init_sha_constants() {
 
 // Функции вращения и сдвига
 func rotr(x, n) {
-    // Вращение вправо: (x >>> n) | (x << (64-n))
     return (x >>> n) | (x << (Int(64) - n));
 }
 

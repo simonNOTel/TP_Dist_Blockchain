@@ -43,7 +43,7 @@ class CodeGen:
                 for st in s.else_body: self.gen_stmt(st)
                 self.patch(jmp, len(self.code))
             else: self.patch(jz, len(self.code))
-        elif isinstance(s, While): # <--- НОВОЕ
+        elif isinstance(s, While):
             start = len(self.code)
             self.gen_expr(s.cond); self.emit(30, 0); exit_p = len(self.code)-1
             for st in s.body: self.gen_stmt(st)
@@ -53,7 +53,7 @@ class CodeGen:
             for st in s.body: self.gen_stmt(st)
             self.gen_stmt(s.step); self.emit(20, start); self.patch(ex, len(self.code))
         elif isinstance(s, Return): self.gen_expr(s.expr); self.emit(22)
-        else: self.gen_expr(s); self.emit(2) # POP для вызовов как команд
+        else: self.gen_expr(s); self.emit(2)
 
     def gen_expr(self, e):
         if isinstance(e, Number): self.emit(1, e.value)
@@ -78,6 +78,9 @@ class CodeGen:
             elif e.name == "fappend": self.gen_expr(e.args[0]); self.gen_expr(e.args[1]); self.emit(51)
             elif e.name == "fappend_int": self.gen_expr(e.args[0]); self.gen_expr(e.args[1]); self.emit(53)
             elif e.name == "fread": self.gen_expr(e.args[0]); self.emit(52)
+            # --- НОВАЯ ПОДДЕРЖКА RANDOM ---
+            elif e.name == "random": self.emit(60)
+            # ------------------------------
             elif e.name == "json_get_hash":
                 for arg in e.args: self.gen_expr(arg)
                 self.emit(61)

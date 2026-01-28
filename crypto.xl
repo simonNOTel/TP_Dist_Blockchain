@@ -13,39 +13,36 @@ func init_hash_state(h_ptr) {
     h_ptr[Int(7)] = 0x5be0cd19137e2179;
 }
 
-// Функция подписи блока данных секретным ключом
-// Возвращает массив из 8 чисел (хеш-подпись)
+// --- НОВАЯ ФУНКЦИЯ: Генерация пары ключей внутри VM ---
+func crypto_generate_keys() {
+    // 1. Генерируем секретный ключ (через системный вызов)
+    var priv = random();
+
+    // 2. Вычисляем публичный ключ (через маску, как раньше)
+    var pub = priv ^ 0xDEADBEEFCAFEBABE;
+
+    // 3. Упаковываем в массив, чтобы вернуть оба значения
+    var keys = new(Int(2));
+    keys[Int(0)] = pub;
+    keys[Int(1)] = priv;
+
+    return keys; // Возвращаем указатель на массив
+}
+
 func crypto_sign(data_ptr, data_len, secret_key) {
     init_sha_constants();
-
-    // 1. Подготовка памяти
-    var w = new(Int(80)); // Message schedule buffer
-    var h = new(Int(8));  // Hash state
-
+    var w = new(Int(80));
+    var h = new(Int(8));
     init_hash_state(h);
 
-    // 2. Формирование блока (Block Construction)
-    // Очистка буфера w
-    for(var i = Int(0); i < Int(80); i = i + Int(1)) {
-        w[i] = Int(0);
-    }
+    for(var i = Int(0); i < Int(80); i = i + Int(1)) { w[i] = Int(0); }
 
-    // [0] -> Секретный ключ (соль)
     w[Int(0)] = secret_key;
-
-    // Копирование данных (упрощенно: по одному слову на ячейку w)
     for(var j = Int(0); j < data_len; j = j + Int(1)) {
-        if (j < Int(14)) {
-            w[j + Int(1)] = data_ptr[j];
-        }
+        if (j < Int(14)) { w[j + Int(1)] = data_ptr[j]; }
     }
-
-    // Паддинг и длина (упрощенная имитация SHA-512)
     w[Int(15)] = data_len * Int(64);
 
-    // 3. Вызов основного алгоритма трансформации
     sha512_transform(h, w);
-
-    // --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Возвращаем указатель на массив хеша ---
     return h;
 }
