@@ -18,11 +18,7 @@ class CodeGen:
         self.code[pos] = val
 
     def gen(self, vars_, funcs):
-        # 1. Регистрация адресов всех функций
-        for f in funcs:
-            self.func_addresses[f.name] = 0
-
-        # 2. Инициализация глобальных переменных
+        for f in funcs: self.func_addresses[f.name] = 0
         for v in vars_:
             if v.name not in self.globals:
                 self.globals[v.name] = self.next_mem
@@ -33,18 +29,15 @@ class CodeGen:
         main_jmp = len(self.code)
         self.emit(20, 0) # Прыжок в main
 
-        # 3. Генерация кода функций
         for f in funcs:
             self.current_func = f
             self.func_addresses[f.name] = len(self.code)
             self.locals = {p: i for i, p in enumerate(f.params)}
-            for stmt in f.body:
-                self.gen_stmt(stmt)
+            for stmt in f.body: self.gen_stmt(stmt)
             self.emit(22) # RET
 
         if "main" in self.func_addresses:
             self.patch(main_jmp + 1, self.func_addresses["main"])
-
         return self.code
 
     def gen_stmt(self, s):
@@ -58,12 +51,9 @@ class CodeGen:
         elif isinstance(s, Assign):
             self.gen_expr(s.expr)
             prefixed_name = f"{self.current_func.name}_{s.name}" if self.current_func else s.name
-            if s.name in self.locals:
-                self.emit(6, self.locals[s.name])
-            elif prefixed_name in self.globals:
-                self.emit(4, self.globals[prefixed_name])
-            else:
-                self.emit(4, self.globals[s.name])
+            if s.name in self.locals: self.emit(6, self.locals[s.name])
+            elif prefixed_name in self.globals: self.emit(4, self.globals[prefixed_name])
+            else: self.emit(4, self.globals[s.name])
         elif isinstance(s, ArrayAssign):
             self.gen_expr(Var(s.name))
             self.gen_expr(s.index)
@@ -71,17 +61,25 @@ class CodeGen:
             self.emit(43)
         elif isinstance(s, If):
             self.gen_expr(s.cond)
-            self.emit(30, 0) # JZ
+            self.emit(30, 0)
             jz_patch = len(self.code) - 1
             for st in s.then_body: self.gen_stmt(st)
             if s.else_body:
-                self.emit(20, 0) # JMP пропуск else
+                self.emit(20, 0)
                 jmp_patch = len(self.code) - 1
                 self.patch(jz_patch, len(self.code))
                 for st in s.else_body: self.gen_stmt(st)
                 self.patch(jmp_patch, len(self.code))
             else:
                 self.patch(jz_patch, len(self.code))
+        elif isinstance(s, While):
+            start = len(self.code)
+            self.gen_expr(s.cond)
+            self.emit(30, 0) # JZ
+            exit_patch = len(self.code) - 1
+            for st in s.body: self.gen_stmt(st)
+            self.emit(20, start) # JMP
+            self.patch(exit_patch, len(self.code))
         elif isinstance(s, For):
             self.gen_stmt(s.init)
             start = len(self.code)
@@ -96,14 +94,11 @@ class CodeGen:
             self.gen_expr(s.expr)
             self.emit(22)
         else:
-            # Исправлено: если вызов функции используется как самостоятельная команда,
-            # мы обязаны удалить результат со стека (OP 2 - POP)
             self.gen_expr(s)
-            self.emit(2)
+            self.emit(2) # POP результата вызова/выражения
 
     def gen_expr(self, e):
-        if isinstance(e, Number):
-            self.emit(1, e.value)
+        if isinstance(e, Number): self.emit(1, e.value)
         elif isinstance(e, StringLiteral):
             if e.value not in self.string_pool:
                 addr = self.next_string_addr
@@ -112,27 +107,19 @@ class CodeGen:
             addr = [k for k, v in self.string_pool.items() if v == e.value][0]
             self.emit(1, addr)
         elif isinstance(e, Var):
-            name_with_prefix = f"{self.current_func.name}_{e.name}" if self.current_func else e.name
-            if e.name in self.locals:
-                self.emit(5, self.locals[e.name])
-            elif name_with_prefix in self.globals:
-                self.emit(3, self.globals[name_with_prefix])
-            else:
-                self.emit(3, self.globals[e.name])
+            name_p = f"{self.current_func.name}_{e.name}" if self.current_func else e.name
+            if e.name in self.locals: self.emit(5, self.locals[e.name])
+            elif name_p in self.globals: self.emit(3, self.globals[name_p])
+            else: self.emit(3, self.globals[e.name])
         elif isinstance(e, BinOp):
-            self.gen_expr(e.left)
-            self.gen_expr(e.right)
+            self.gen_expr(e.left); self.gen_expr(e.right)
             ops = {"+": 10, "-": 11, "*": 12, "/": 13, "==": 14, "!=": 15,
                   "<": 16, ">": 17, "&&": 18, "||": 19, "&": 7, "|": 8,
                   "^": 9, ">>>": 32, "<<": 33}
             self.emit(ops[e.op])
-        elif isinstance(e, ArrayAlloc):
-            self.gen_expr(e.size)
-            self.emit(41)
+        elif isinstance(e, ArrayAlloc): self.gen_expr(e.size); self.emit(41)
         elif isinstance(e, ArrayAccess):
-            self.gen_expr(Var(e.name))
-            self.gen_expr(e.index)
-            self.emit(42)
+            self.gen_expr(Var(e.name)); self.gen_expr(e.index); self.emit(42)
         elif isinstance(e, Call):
             if e.name == "prints": self.gen_expr(e.args[0]); self.emit(45)
             elif e.name == "printi": self.gen_expr(e.args[0]); self.emit(46)

@@ -1,65 +1,37 @@
 from dataclasses import dataclass
 
-
 @dataclass
 class VarDecl: name: str; value: any
-
-
 @dataclass
 class Func: name: str; params: list; body: list
-
-
+@dataclass
+class While: cond: any; body: list
 @dataclass
 class Assign: name: str; expr: any
-
-
 @dataclass
 class BinOp: left: any; op: str; right: any
-
-
 @dataclass
 class Number: value: int
-
-
 @dataclass
 class StringLiteral: value: str
-
-
 @dataclass
 class Var: name: str
-
-
 @dataclass
 class Return: expr: any
-
-
 @dataclass
 class Call: name: str; args: list
-
-
 @dataclass
 class If: cond: any; then_body: list; else_body: list
-
-
 @dataclass
 class For: init: any; cond: any; step: any; body: list
-
-
 @dataclass
 class ArrayAlloc: size: any
-
-
 @dataclass
 class ArrayAccess: name: str; index: any
-
-
 @dataclass
 class ArrayAssign: name: str; index: any; value: any
-
-
 @dataclass
 class Import: filename: str
-
 
 class Parser:
     def __init__(self, tokens):
@@ -136,8 +108,6 @@ class Parser:
             while self.peek() and self.peek().type != "RBRACE":
                 then_body.append(self.parse_stmt())
             self.eat("RBRACE")
-
-            # ПОДДЕРЖКА БЛОКА ELSE
             else_body = []
             if self.peek() and self.peek().type == "ELSE":
                 self.eat("ELSE")
@@ -146,6 +116,8 @@ class Parser:
                     else_body.append(self.parse_stmt())
                 self.eat("RBRACE")
             res = If(cond, then_body, else_body)
+        elif t.type == "WHILE":
+            res = self.parse_while()
         elif t.type == "FOR":
             self.eat()
             self.eat("LPAREN")
@@ -168,16 +140,13 @@ class Parser:
             name = t.value
             next_t = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else None
             if next_t and next_t.type == "LBRACKET":
-                self.eat("ID");
-                self.eat("LBRACKET")
-                idx = self.parse_expr();
-                self.eat("RBRACKET")
-                self.eat("OP")  # '='
+                self.eat("ID"); self.eat("LBRACKET")
+                idx = self.parse_expr(); self.eat("RBRACKET")
+                self.eat("OP")
                 val = self.parse_expr()
                 res = ArrayAssign(name, idx, val)
             elif next_t and next_t.type == "OP" and next_t.value == "=":
-                self.eat("ID");
-                self.eat("OP")
+                self.eat("ID"); self.eat("OP")
                 res = Assign(name, self.parse_expr())
             else:
                 res = self.parse_expr()
@@ -186,8 +155,19 @@ class Parser:
 
         while self.peek() and self.peek().type == "SEMICOL":
             self.eat("SEMICOL")
-
         return res
+
+    def parse_while(self):
+        self.eat("WHILE")
+        self.eat("LPAREN")
+        cond = self.parse_expr()
+        self.eat("RPAREN")
+        self.eat("LBRACE")
+        body = []
+        while self.peek() and self.peek().type != "RBRACE":
+            body.append(self.parse_stmt())
+        self.eat("RBRACE")
+        return While(cond, body)
 
     def parse_expr(self):
         return self.parse_logic_or()
@@ -246,13 +226,10 @@ class Parser:
         if t.type == "NUMBER":
             val = int(t.value, 16) if t.value.startswith("0x") else int(t.value)
             return Number(val)
-
         if t.type == "STRING":
-            # Исправленное декодирование строк для поддержки \n и экранированных кавычек
             raw_val = t.value[1:-1]
             val = raw_val.encode('utf-8').decode('unicode_escape')
             return StringLiteral(val)
-
         if t.type == "NEW":
             self.eat("LPAREN")
             size = self.parse_expr()
@@ -264,8 +241,7 @@ class Parser:
                 self.eat("LPAREN")
                 sign = 1
                 if self.peek().type == "OP" and self.peek().value == "-":
-                    self.eat()
-                    sign = -1
+                    self.eat(); sign = -1
                 num_t = self.eat("NUMBER")
                 val = int(num_t.value, 16) if num_t.value.startswith("0x") else int(num_t.value)
                 self.eat("RPAREN")
@@ -276,20 +252,16 @@ class Parser:
                 if self.peek().type != "RPAREN":
                     while True:
                         args.append(self.parse_expr())
-                        if self.peek().type == "COMMA":
-                            self.eat("COMMA")
-                        else:
-                            break
+                        if self.peek().type == "COMMA": self.eat("COMMA")
+                        else: break
                 self.eat("RPAREN")
                 return Call(name, args)
             if self.peek() and self.peek().type == "LBRACKET":
                 self.eat("LBRACKET")
-                idx = self.parse_expr()
-                self.eat("RBRACKET")
+                idx = self.parse_expr(); self.eat("RBRACKET")
                 return ArrayAccess(name, idx)
             return Var(name)
         if t.type == "LPAREN":
-            node = self.parse_expr()
-            self.eat("RPAREN")
+            node = self.parse_expr(); self.eat("RPAREN")
             return node
         raise Exception(f"Unexpected token {t.type} at line {t.line}")

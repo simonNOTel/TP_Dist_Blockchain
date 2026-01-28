@@ -8,31 +8,25 @@ var block_index = Int(0);
 
 func bc_init() {
     fwrite(chain_file, "[");
-    for (var i = Int(0); i < Int(8); i = i + Int(1)) {
-        last_block_hash[i] = Int(0);
-    }
+    for (var i = Int(0); i < Int(8); i = i + Int(1)) { last_block_hash[i] = Int(0); }
     block_index = Int(1);
     prints("Core: Blockchain engine initialized.");
 }
 
-// Восстановление состояния после перезагрузки API-сервера
 func bc_load_state() {
     var content = fread(chain_file);
     if (content == Int(0)) {
         bc_init();
         return Int(0);
     }
-
     var i = Int(1);
     while (json_get_hash(content, i, "index") != Int(0)) {
         block_index = i;
-        // Восстанавливаем XOR-хеш последнего блока для связи (упрощенная модель)
         last_block_hash[Int(0)] = json_get_hash(content, i, "hash");
         i = i + Int(1);
     }
     block_index = block_index + Int(1);
-    prints("Core: State restored. Next block index:");
-    printi(block_index);
+    prints("Core: State restored successfully.");
     return Int(1);
 }
 
@@ -45,7 +39,6 @@ func bc_verify_full_integrity() {
     prints("Verify: Starting full cryptographic audit...");
     var content = fread(chain_file);
     if (content == Int(0)) { return Int(1); }
-
     var last_known_hash = Int(0);
     for (var i = Int(1); i < block_index; i = i + Int(1)) {
         var file_prev = json_get_hash(content, i, "prev_hash");
