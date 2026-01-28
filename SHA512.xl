@@ -1,7 +1,6 @@
 // SHA512.xl - Полная реализация по стандарту FIPS 180-4
 
 var K = new(Int(80));
-
 // Инициализация всех 80 констант (кубические корни простых чисел)
 func init_sha_constants() {
     K[Int(0)] = 0x428a2f98d728ae22; K[Int(1)] = 0x7137449123ef65cd;
@@ -49,10 +48,7 @@ func init_sha_constants() {
 // Функции вращения и сдвига
 func rotr(x, n) {
     // Вращение вправо: (x >>> n) | (x << (64-n))
-    // Так как у нас нет явного << для 64 бит в xlang,
-    // эмулируем поведение, полагаясь на логический сдвиг >>>.
-    // Примечание: Это упрощение. Для полной точности нужна поддержка << в VM.
-    return (x >>> n) | (x >>> (Int(64) - n));
+    return (x >>> n) | (x << (Int(64) - n));
 }
 
 func Ch(x, y, z) { return (x & y) ^ ((x ^ Int(-1)) & z); }
@@ -65,7 +61,6 @@ func SmallSigma1(x) { return rotr(x, Int(19)) ^ rotr(x, Int(61)) ^ (x >>> Int(6)
 
 func sha512_transform(h, w) {
     for (var t = Int(16); t < Int(80); t = t + Int(1)) {
-        // Убедитесь, что t не становится отрицательным и не превышает 79
         var s1 = SmallSigma1(w[t - Int(2)]);
         var s0 = SmallSigma0(w[t - Int(15)]);
         var w_7 = w[t - Int(7)];
@@ -73,13 +68,12 @@ func sha512_transform(h, w) {
         w[t] = s1 + w_7 + s0 + w_16;
     }
 
-    // 2. Инициализация переменных раунда
-    var a = h[Int(0)]; var b = h[Int(1)];
+    var a = h[Int(0)];
+    var b = h[Int(1)];
     var c = h[Int(2)]; var d = h[Int(3)];
     var e = h[Int(4)]; var f = h[Int(5)];
     var g = h[Int(6)]; var hh = h[Int(7)];
 
-    // 3. Основной цикл (80 раундов)
     for (var i = Int(0); i < Int(80); i = i + Int(1)) {
         var T1 = hh + BigSigma1(e) + Ch(e, f, g) + K[i] + w[i];
         var T2 = BigSigma0(a) + Maj(a, b, c);
@@ -94,7 +88,6 @@ func sha512_transform(h, w) {
         a = T1 + T2;
     }
 
-    // 4. Добавление результата
     h[Int(0)] = h[Int(0)] + a;
     h[Int(1)] = h[Int(1)] + b;
     h[Int(2)] = h[Int(2)] + c;

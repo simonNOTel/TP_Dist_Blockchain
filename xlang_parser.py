@@ -86,8 +86,23 @@ class Parser:
             t = self.peek()
             if t.type == "IMPORT":
                 self.eat()
-                filename = self.eat("STRING").value.strip('"')
+                # Получаем строку и убираем кавычки
+                raw_val = self.eat("STRING").value
+                filename = raw_val.strip('"')
+
+                # --- ВАЖНО: Пропускаем, если строка пустая ---
+                if not filename or filename.strip() == "":
+                    if self.peek() and self.peek().type == "SEMICOL":
+                        self.eat("SEMICOL")
+                    continue
+                # ---------------------------------------------
+
                 imports.append(Import(filename))
+
+                # Пропускаем точку с запятой, если есть
+                if self.peek() and self.peek().type == "SEMICOL":
+                    self.eat("SEMICOL")
+
             elif t.type == "VAR":
                 vars_.append(self.parse_var_decl())
             elif t.type == "FUNC":
@@ -116,11 +131,10 @@ class Parser:
         self.eat("RBRACE")
         return Func(name, params, body)
 
-    # ДОБАВЛЕННЫЙ МЕТОД
     def parse_var_decl(self):
         self.eat("VAR")
         name = self.eat("ID").value
-        self.eat("OP")  # Ожидаем '='
+        self.eat("OP")
         val = self.parse_expr()
         if self.peek() and self.peek().type == "SEMICOL":
             self.eat("SEMICOL")
@@ -173,33 +187,28 @@ class Parser:
         if t.type == "RETURN":
             self.eat()
             val = self.parse_expr()
-            # ИСПРАВЛЕНИЕ: съедаем точку с запятой после return
             if self.peek() and self.peek().type == "SEMICOL":
                 self.eat("SEMICOL")
             return Return(val)
 
-        # Обработка присваиваний и вызовов
         if t.type == "ID":
             name = t.value
-            # Заглядываем вперед, чтобы отличить присваивание от вызова
             next_t = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else None
             if next_t and next_t.type == "LBRACKET":
-                self.eat()  # ID
-                self.eat()  # [
+                self.eat()
+                self.eat()
                 idx = self.parse_expr()
                 self.eat("RBRACKET")
-                self.eat("OP")  # =
+                self.eat("OP")
                 val = self.parse_expr()
-                # ИСПРАВЛЕНИЕ: съедаем точку с запятой после присваивания массива
                 if self.peek() and self.peek().type == "SEMICOL":
                     self.eat("SEMICOL")
                 return ArrayAssign(name, idx, val)
 
             if next_t and next_t.type == "OP" and next_t.value == "=":
-                self.eat()  # ID
-                self.eat()  # =
+                self.eat()
+                self.eat()
                 val = self.parse_expr()
-                # ИСПРАВЛЕНИЕ: съедаем точку с запятой после обычного присваивания
                 if self.peek() and self.peek().type == "SEMICOL":
                     self.eat("SEMICOL")
                 return Assign(name, val)
@@ -273,7 +282,6 @@ class Parser:
             return ArrayAlloc(size)
         if t.type == "ID":
             name = t.value
-            # Обработка Int(...)
             if name == "Int":
                 self.eat("LPAREN")
                 sign = 1
@@ -285,7 +293,6 @@ class Parser:
                 self.eat("RPAREN")
                 return Number(val * sign)
 
-            # Обработка вызова функции
             if self.peek() and self.peek().type == "LPAREN":
                 self.eat("LPAREN")
                 args = []
@@ -299,7 +306,6 @@ class Parser:
                 self.eat("RPAREN")
                 return Call(name, args)
 
-            # Доступ к массиву
             if self.peek() and self.peek().type == "LBRACKET":
                 self.eat("LBRACKET")
                 idx = self.parse_expr()

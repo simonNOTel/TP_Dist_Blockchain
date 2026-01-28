@@ -11,20 +11,41 @@ def load_program(filename, visited=None):
     if visited is None:
         visited = set()
 
-    abs_path = os.path.abspath(filename)
+    # --- ЗАЩИТА №1: Жесткая проверка на пустое имя файла ---
+    if not filename or not isinstance(filename, str) or filename.strip() == "":
+        # Просто игнорируем пустые импорты, не вызывая ошибку
+        return [], []
+
+    # Приводим к абсолютному пути
+    try:
+        abs_path = os.path.abspath(filename)
+    except Exception:
+        return [], []
+
     if abs_path in visited:
         return [], []
     visited.add(abs_path)
 
     print(f"[Compiler] Loading: {filename}...")
+
     if not os.path.exists(filename):
+        print(f"[Compiler] Error: File not found '{filename}'")
         raise FileNotFoundError(f"Source file not found: {filename}")
 
-    with open(filename, "r", encoding="utf-8") as f:
-        source = f.read()
+    # --- ЗАЩИТА №2: Безопасное открытие файла ---
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            source = f.read()
+    except OSError as e:
+        print(f"[Compiler] Failed to open file '{filename}': {e}")
+        return [], []
 
     # Лексический анализ
-    tokens = tokenize(source)
+    try:
+        tokens = tokenize(source)
+    except Exception as e:
+        print(f"[Compiler] Tokenization error in {filename}: {e}")
+        raise e
 
     # Парсинг
     parser = Parser(tokens)
@@ -34,6 +55,7 @@ def load_program(filename, visited=None):
 
     # Обработка импортов
     for imp in imports:
+        # Рекурсивный вызов
         v, f = load_program(imp.filename, visited)
         all_vars.extend(v)
         all_funcs.extend(f)
@@ -61,9 +83,6 @@ def run_pipeline(entry_file):
 
         # Загружаем строки в память VM
         vm.load_strings(cg.string_pool)
-
-        # Устанавливаем указатель кучи (hp) СРАЗУ ПОСЛЕ строк,
-        # чтобы новые массивы (new) не затирали имена файлов и текст
         vm.hp = cg.next_string_addr
 
         vm.run()
@@ -71,11 +90,10 @@ def run_pipeline(entry_file):
         print("--- EXECUTION FINISHED ---")
 
     except Exception as e:
-        print(f"\n[!] ERROR: {e}")
+        print(f"\n[!] COMPILER ERROR: {e}")
         import traceback
         traceback.print_exc()
 
 
 if __name__ == "__main__":
-    # Точка входа - ваш главный файл .xl
     run_pipeline("main.xl")

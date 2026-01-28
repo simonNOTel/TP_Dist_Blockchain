@@ -5,14 +5,14 @@ import "actions.xl";
 
 func main() {
     prints("=== GEM BLOCKCHAIN SYSTEM START ===");
+
+    // Инициализация блокчейна (если нужно сбросить файл)
     bc_init();
     base_init();
 
-    action_create_wallet(0xABCD1234, Int(1));
-
-    var doc_hash = new(Int(8));
-    doc_hash[Int(0)] = 0x55555555;
-    action_nft_create(Int(1001), 0xABCD1234, 0x375, doc_hash);
+    // УДАЛЕНЫ или ЗАКОММЕНТИРОВАНЫ строки создания кошелька и NFT
+    // action_create_wallet(...)
+    // action_nft_create(...)
 
     bc_finish();
 
