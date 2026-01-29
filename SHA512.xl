@@ -51,7 +51,7 @@ func rotr(x, n) {
     return (x >>> n) | (x << (Int(64) - n));
 }
 
-func Ch(x, y, z) { return (x & y) ^ ((x ^ Int(-1)) & z); }
+func Ch(x, y, z) { return (x & y) ^ ((x ^ 0xFFFFFFFFFFFFFFFF) & z); }
 func Maj(x, y, z) { return (x & y) ^ (x & z) ^ (y & z); }
 
 func BigSigma0(x) { return rotr(x, Int(28)) ^ rotr(x, Int(34)) ^ rotr(x, Int(39)); }

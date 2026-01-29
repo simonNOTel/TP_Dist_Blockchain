@@ -151,6 +151,15 @@ class CodeGen:
             elif e.name == "json_get_hash":
                 for arg in e.args: self.gen_expr(arg, calls_to_patch)
                 self.emit(61)
+            elif e.name == "native_sha512":
+                # Ожидает: (data_ptr, size)
+                self.gen_expr(e.args[0], calls_to_patch)
+                self.gen_expr(e.args[1], calls_to_patch)
+                self.emit(62)
+            elif e.name == "native_keygen":
+                # Не ожидает аргументов
+                self.emit(63)
+            # ... остальные проверки (prints, printi и т.д.) ...
             else:
                 # Обычный вызов функции
                 for arg in reversed(e.args): self.gen_expr(arg, calls_to_patch)

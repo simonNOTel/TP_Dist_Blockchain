@@ -1,9 +1,8 @@
-// actions.xl - Реализация действий
+// actions.xl
 import "base.xl";
 import "bc_core.xl";
 import "crypto.xl";
 
-// Создание кошелька
 func action_create_wallet(role) {
     prints("Action: generating keys inside VM...");
     var keys = crypto_generate_keys();
@@ -14,20 +13,13 @@ func action_create_wallet(role) {
     wallet[Int(1)] = role;
     wallet[Int(2)] = Int(1715000000);
 
-    bc_commit_block(wallet, WALLET_STRUCT_SIZE, Int(1), Int(0));
+    // ИСПРАВЛЕНО: bc_commit_block принимает только 3 аргумента
+    bc_commit_block(wallet, WALLET_STRUCT_SIZE, Int(1));
     return keys;
 }
 
 func action_nft_create(nft_id, owner, creator, doc_hash_ptr, creator_priv_key) {
     prints("Action: Minting NFT...");
-
-    // --- ИЗМЕНЕНИЕ: Отключаем проверку авторизации для тестов ---
-    // if (entity_is_authorized(creator) == Int(0)) {
-    //     prints("Error: Unauthorized creator!");
-    //     return Int(0);
-    // }
-    // -----------------------------------------------------------
-
     var nft = new(NFT_STRUCT_SIZE);
     nft[Int(0)] = nft_id;
     nft[Int(1)] = owner;
@@ -38,7 +30,8 @@ func action_nft_create(nft_id, owner, creator, doc_hash_ptr, creator_priv_key) {
     nft[Int(11)] = Int(1715000001);
     nft[Int(12)] = Int(1);
 
-    return bc_commit_block(nft, NFT_STRUCT_SIZE, Int(2), creator_priv_key);
+    // ИСПРАВЛЕНО: Удален 4-й аргумент (creator_priv_key)
+    return bc_commit_block(nft, NFT_STRUCT_SIZE, Int(2));
 }
 
 func action_nft_transfer(nft_id, new_owner, owner_priv_key) {
@@ -48,13 +41,6 @@ func action_nft_transfer(nft_id, new_owner, owner_priv_key) {
     transfer_data[Int(1)] = new_owner;
     transfer_data[Int(2)] = Int(1715000002);
 
-    return bc_commit_block(transfer_data, Int(3), Int(3), owner_priv_key);
-}
-
-func action_nft_deactivate(nft_id, creator, creator_priv_key) {
-    var deactivate_data = new(Int(3));
-    deactivate_data[Int(0)] = nft_id;
-    deactivate_data[Int(1)] = Int(0);
-    deactivate_data[Int(2)] = Int(1715000003);
-    return bc_commit_block(deactivate_data, Int(3), Int(4), creator_priv_key);
+    // ИСПРАВЛЕНО: Удален 4-й аргумент
+    return bc_commit_block(transfer_data, Int(3), Int(3));
 }

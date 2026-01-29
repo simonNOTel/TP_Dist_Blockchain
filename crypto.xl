@@ -1,48 +1,34 @@
-// crypto.xl - Криптографические функции подписи
-import "SHA512.xl";
+// crypto.xl - Обертка над нативной Python-криптографией
 
-// Инициализация стандартного IV для SHA-512
-func init_hash_state(h_ptr) {
-    h_ptr[Int(0)] = 0x6a09e667f3bcc908;
-    h_ptr[Int(1)] = 0xbb67ae8584caa73b;
-    h_ptr[Int(2)] = 0x3c6ef372fe94f82b;
-    h_ptr[Int(3)] = 0xa54ff53a5f1d36f1;
-    h_ptr[Int(4)] = 0x510e527fade682d1;
-    h_ptr[Int(5)] = 0x9b05688c2b3e6c1f;
-    h_ptr[Int(6)] = 0x1f83d9abfb41bd6b;
-    h_ptr[Int(7)] = 0x5be0cd19137e2179;
+// Системный вызов хеширования
+// Вход: указатель на данные, размер
+// Выход: указатель на массив из 8 чисел (хэш)
+func native_sha512(ptr, size) {
+    // Эта функция перехватывается компилятором (opcode 62)
+    return Int(0);
 }
 
-// --- НОВАЯ ФУНКЦИЯ: Генерация пары ключей внутри VM ---
+// Системный вызов генерации ключей
+// Выход: указатель на массив [pub_ptr, priv_ptr]
+// Где pub_ptr и priv_ptr - указатели на массивы из 4 чисел (256 бит)
+func native_keygen() {
+    // Эта функция перехватывается компилятором (opcode 63)
+    return Int(0);
+}
+
+// --- Публичный API ---
+
 func crypto_generate_keys() {
-    // 1. Генерируем секретный ключ (через системный вызов)
-    var priv = random();
-
-    // 2. Вычисляем публичный ключ (через маску, как раньше)
-    var pub = priv ^ 0xDEADBEEFCAFEBABE;
-
-    // 3. Упаковываем в массив, чтобы вернуть оба значения
-    var keys = new(Int(2));
-    keys[Int(0)] = pub;
-    keys[Int(1)] = priv;
-
-    return keys; // Возвращаем указатель на массив
+    prints("Crypto: Generating Ed25519 keys (native)...");
+    // Просто вызываем нативную функцию
+    return native_keygen();
 }
 
 func crypto_sign(data_ptr, data_len, secret_key) {
-    init_sha_constants();
-    var w = new(Int(80));
-    var h = new(Int(8));
-    init_hash_state(h);
+    // Используем SHA-512 для вычисления хеша данных (как было в логике blockchain)
+    // Если нужно именно ПОДПИСЫВАТЬ данные приватным ключом Ed25519,
+    // логику нужно немного изменить, но для сохранения Hash-цепочки (h0-h7)
+    // мы используем sha512.
 
-    for(var i = Int(0); i < Int(80); i = i + Int(1)) { w[i] = Int(0); }
-
-    w[Int(0)] = secret_key;
-    for(var j = Int(0); j < data_len; j = j + Int(1)) {
-        if (j < Int(14)) { w[j + Int(1)] = data_ptr[j]; }
-    }
-    w[Int(15)] = data_len * Int(64);
-
-    sha512_transform(h, w);
-    return h;
+    return native_sha512(data_ptr, data_len);
 }

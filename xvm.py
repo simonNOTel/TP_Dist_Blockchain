@@ -1,6 +1,7 @@
 import sys
 import re
-import random  # <--- ДОБАВЛЕН ИМПОРТ
+import random
+import crypto  # <--- Добавляем модуль криптографии
 
 
 class XVM:
@@ -69,35 +70,50 @@ class XVM:
 
         # --- Арифметика и Логика ---
         elif op == 10:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a + b))
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(self._mask64(a + b))
         elif op == 11:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a - b))
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(self._mask64(a - b))
         elif op == 12:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(self._mask64(a * b))
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(self._mask64(a * b))
         elif op == 13:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a // b if b != 0 else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(a // b if b != 0 else 0)
         elif op == 14:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a == b else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(1 if a == b else 0)
         elif op == 15:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a != b else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(1 if a != b else 0)
         elif op == 16:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a < b else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(1 if a < b else 0)
         elif op == 17:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a > b else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(1 if a > b else 0)
         elif op == 18:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a and b else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(1 if a and b else 0)
         elif op == 19:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(1 if a or b else 0)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(1 if a or b else 0)
         elif op == 7:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a & b)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(a & b)
         elif op == 8:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a | b)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(a | b)
         elif op == 9:
-            b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a ^ b)
+            b, a = self.stack.pop(), self.stack.pop();
+            self.stack.append(a ^ b)
         elif op == 32:
-            b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a) >> b)
+            b, a = self.stack.pop() % 64, self.stack.pop();
+            self.stack.append(self._mask64(a) >> b)
         elif op == 33:
-            b, a = self.stack.pop() % 64, self.stack.pop(); self.stack.append(self._mask64(a << b))
+            b, a = self.stack.pop() % 64, self.stack.pop();
+            self.stack.append(self._mask64(a << b))
 
         # --- Управление ---
         elif op == 20:
@@ -121,23 +137,33 @@ class XVM:
 
         # --- Память и Системные вызовы ---
         elif op == 41:
-            size = self.stack.pop(); self.stack.append(self.hp); self.hp += int(size)
+            size = self.stack.pop();
+            self.stack.append(self.hp);
+            self.hp += int(size)
         elif op == 42:
-            idx, base = self.stack.pop(), self.stack.pop(); self.stack.append(self.heap[int(base + idx)])
+            idx, base = self.stack.pop(), self.stack.pop();
+            self.stack.append(self.heap[int(base + idx)])
         elif op == 43:
-            v, i, b = self.stack.pop(), self.stack.pop(), self.stack.pop(); self.heap[int(b + i)] = v
+            v, i, b = self.stack.pop(), self.stack.pop(), self.stack.pop();
+            self.heap[int(b + i)] = v
         elif op == 45:
-            print(self._read_str(self.stack.pop()), flush=True); self.stack.append(0)
+            print(self._read_str(self.stack.pop()), flush=True);
+            self.stack.append(0)
         elif op == 46:
-            print(f"0x{self.stack.pop():016x}", flush=True); self.stack.append(0)
+            print(f"0x{self.stack.pop():016x}", flush=True);
+            self.stack.append(0)
         elif op == 50:
-            d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n, "w",
-                                                                                            encoding="utf-8").write(
-                d); self.stack.append(1)
+            d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop());
+            open(n, "w",
+                 encoding="utf-8").write(
+                d);
+            self.stack.append(1)
         elif op == 51:
-            d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop()); open(n, "a",
-                                                                                            encoding="utf-8").write(
-                d); self.stack.append(1)
+            d, n = self._read_str(self.stack.pop()), self._read_str(self.stack.pop());
+            open(n, "a",
+                 encoding="utf-8").write(
+                d);
+            self.stack.append(1)
         elif op == 52:
             try:
                 name = self._read_str(self.stack.pop())
@@ -151,8 +177,10 @@ class XVM:
             except:
                 self.stack.append(0)
         elif op == 53:
-            v, n = self.stack.pop(), self._read_str(self.stack.pop()); open(n, "a", encoding="utf-8").write(
-                str(int(v))); self.stack.append(1)
+            v, n = self.stack.pop(), self._read_str(self.stack.pop());
+            open(n, "a", encoding="utf-8").write(
+                str(int(v)));
+            self.stack.append(1)
 
         # --- НОВЫЙ ОПКОД: RANDOM (Генерация ключей внутри VM) ---
         elif op == 60:
@@ -168,6 +196,57 @@ class XVM:
                 self.stack.append(int(match.group(1)) if match else 0)
             else:
                 self.stack.append(0)
+
+        # --- НАТИВНАЯ КРИПТОГРАФИЯ (Исправлено положение блоков) ---
+        elif op == 62:  # SHA512 Native
+            # Стек: [ptr_data, size] -> [ptr_hash_result]
+            size = self.stack.pop()
+            ptr = self.stack.pop()
+
+            # Читаем сырые байты из памяти VM
+            data_bytes = bytearray()
+            # Предполагаем, что 1 слово памяти = 1 байт данных (упрощенная модель)
+            for i in range(size):
+                val = self.heap[ptr + i]
+                data_bytes.append(val & 0xFF)
+
+            # Вызываем Python функцию
+            hash_words = crypto.get_sha512_hash(data_bytes)
+
+            # Записываем результат (8 слов) в кучу
+            res_ptr = self.hp
+            for w in hash_words:
+                self.heap[self.hp] = w
+                self.hp += 1
+
+            self.stack.append(res_ptr)
+
+        elif op == 63:  # Ed25519 Keygen Native
+            # Стек: [] -> [ptr_to_keys_array]
+
+            pub_words, priv_words = crypto.generate_ed25519_keys()
+
+            # 1. Сохраняем Public Key (4 слова) в кучу
+            pub_ptr = self.hp
+            for w in pub_words:
+                self.heap[self.hp] = w
+                self.hp += 1
+
+            # 2. Сохраняем Private Key (4 слова) в кучу
+            priv_ptr = self.hp
+            for w in priv_words:
+                self.heap[self.hp] = w
+                self.hp += 1
+
+            # 3. Создаем массив-результат [pub_ptr, priv_ptr]
+            res_ptr = self.hp
+            self.heap[self.hp] = pub_ptr
+            self.hp += 1
+            self.heap[self.hp] = priv_ptr
+            self.hp += 1
+
+            # Возвращаем указатель на массив ключей
+            self.stack.append(res_ptr)
 
     def execute_function(self, addr, args):
         for a in reversed(args): self.stack.append(a)

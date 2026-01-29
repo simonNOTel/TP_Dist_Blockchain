@@ -2,20 +2,18 @@
 import "actions.xl";
 
 func process_external_request() {
-    // Читаем из безопасной зоны (0-9999)
     var op = hload(Int(0), Int(10));
     var arg1 = hload(Int(0), Int(11));
     var arg2 = hload(Int(0), Int(12));
 
-    if (op == Int(0)) {
-        return Int(0);
-    }
+    if (op == Int(0)) { return Int(0); }
 
     prints("API: Processing request found...");
 
     if (op == Int(1)) {
         prints("DEBUG: OP is 1 (Create Wallet)");
-        var res = action_create_wallet(arg1, Int(1));
+        // ИСПРАВЛЕНО: Удален лишний аргумент Int(1)
+        var res = action_create_wallet(arg1);
         if (res > Int(0)) {
             prints("API: Wallet creation successful.");
         }
@@ -26,7 +24,7 @@ func process_external_request() {
         prints("DEBUG: OP is 2 (NFT Mint)");
         var h = new(Int(8));
         for (var i = Int(0); i < Int(8); i = i + Int(1)) { h[i] = Int(0); }
-        action_nft_create(arg2, arg1, 0x375, h);
+        action_nft_create(arg2, arg1, 0x375, h, Int(0)); // Добавлен пустой ключ для соответствия
         return Int(1);
     }
 
